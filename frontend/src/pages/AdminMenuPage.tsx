@@ -16,6 +16,7 @@ type Option = {
   id: string;
   name: string;
   priceCents: number;
+  position: number;
   active: boolean;
 };
 
@@ -23,7 +24,10 @@ type Group = {
   id: string;
   name: string;
   required: boolean;
+  minSelection: number;
   maxSelection: number;
+  position: number;
+  active: boolean;
   options: Option[];
 };
 
@@ -47,14 +51,22 @@ type PatchInput = {
   body: unknown;
 };
 
+type ReorderCategoryInput = {
+  categoryId: string;
+  targetIndex: number;
+};
+
 export function AdminMenuPage() {
   const client = useQueryClient();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
 
   const categories = useQuery({
     queryKey: ["admin-categories"],
     queryFn: () => adminApi<Category[]>("/admin/categories"),
   });
+
   const products = useQuery({
     queryKey: ["admin-products"],
     queryFn: () => adminApi<Product[]>("/admin/products"),
@@ -105,6 +117,53 @@ export function AdminMenuPage() {
     },
   });
 
+  const editCategory = useMutation({
+    mutationFn: ({ path, body }: PatchInput) =>
+      adminApi(path, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      setEditingCategory(null);
+      refresh();
+    },
+  });
+
+  const editGroup = useMutation({
+    mutationFn: ({ path, body }: PatchInput) =>
+      adminApi(path, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      setEditingGroup(null);
+      refresh();
+    },
+  });
+
+  const reorderCategories = useMutation({
+    mutationFn: async ({ categoryId, targetIndex }: ReorderCategoryInput) => {
+      const ordered = [...(categories.data ?? [])];
+      const currentIndex = ordered.findIndex(
+        (category) => category.id === categoryId,
+      );
+
+      if (currentIndex < 0 || currentIndex === targetIndex) return;
+
+      const [movedCategory] = ordered.splice(currentIndex, 1);
+      ordered.splice(targetIndex, 0, movedCategory);
+
+      // Atualiza em sequência para deixar as posições sempre únicas.
+      for (const [position, category] of ordered.entries()) {
+        await adminApi(`/admin/categories/${category.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ position }),
+        });
+      }
+    },
+    onSuccess: refresh,
+  });
+
   const remove = useMutation({
     mutationFn: (path: string) => adminApi(path, { method: "DELETE" }),
     onSuccess: refresh,
@@ -121,37 +180,50 @@ export function AdminMenuPage() {
 
   function categorySubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    createCategory.mutate({
-      name: form.get("name"),
-      active: true,
-      position: Number(form.get("position")) || 0,
-    });
-    event.currentTarget.reset();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    createCategory.mutate(
+      {
+        name: form.get("name"),
+        active: true,
+        position: categories.data?.length ?? 0,
+      },
+      {
+        onSuccess: () => formElement.reset(),
+      },
+    );
   }
 
   function productSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    createProduct.mutate({
-      categoryId: form.get("categoryId"),
-      name: form.get("name"),
-      description: form.get("description") || undefined,
-      priceCents: Math.round(Number(form.get("price")) * 100),
-      imageUrl: form.get("imageUrl") || "",
-      active: true,
-      soldOut: false,
-      featured: form.get("featured") === "on",
-      position: Number(form.get("position")) || 0,
-    });
-    event.currentTarget.reset();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    createProduct.mutate(
+      {
+        categoryId: form.get("categoryId"),
+        name: form.get("name"),
+        description: form.get("description") || undefined,
+        priceCents: Math.round(Number(form.get("price")) * 100),
+        imageUrl: form.get("imageUrl") || "",
+        active: true,
+        soldOut: false,
+        featured: form.get("featured") === "on",
+        position: Number(form.get("position")) || 0,
+      },
+      {
+        onSuccess: () => formElement.reset(),
+      },
+    );
   }
 
-  function editSubmit(event: FormEvent<HTMLFormElement>) {
+  function editProductSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingProduct) return;
 
     const form = new FormData(event.currentTarget);
+
     editProduct.mutate({
       path: `/admin/products/${editingProduct.id}`,
       body: {
@@ -168,10 +240,46 @@ export function AdminMenuPage() {
     });
   }
 
+  function editCategorySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingCategory) return;
+
+    const form = new FormData(event.currentTarget);
+
+    editCategory.mutate({
+      path: `/admin/categories/${editingCategory.id}`,
+      body: {
+        name: form.get("name"),
+        active: form.get("active") === "on",
+      },
+    });
+  }
+
+  function editGroupSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingGroup) return;
+
+    const form = new FormData(event.currentTarget);
+
+    editGroup.mutate({
+      path: `/admin/option-groups/${editingGroup.id}`,
+      body: {
+        name: form.get("name"),
+        required: form.get("required") === "on",
+        minSelection: Number(form.get("minSelection")) || 0,
+        maxSelection: Number(form.get("maxSelection")) || 1,
+        position: Number(form.get("position")) || 0,
+        active: form.get("active") === "on",
+      },
+    });
+  }
+
   function addGroup(productId: string) {
     const name = prompt("Nome do grupo, por exemplo: Adicionais");
     if (!name) return;
+
     const maxSelection = Number(prompt("Máximo de escolhas", "1") || 1);
+
     create.mutate({
       path: `/admin/products/${productId}/option-groups`,
       body: {
@@ -188,7 +296,9 @@ export function AdminMenuPage() {
   function addOption(groupId: string) {
     const name = prompt("Nome da opção");
     if (!name) return;
+
     const price = Number(prompt("Preço adicional em reais", "0") || 0);
+
     create.mutate({
       path: `/admin/option-groups/${groupId}/options`,
       body: {
@@ -203,6 +313,7 @@ export function AdminMenuPage() {
   return (
     <main className="admin-page">
       <AdminNav />
+
       <header className="admin-header">
         <div>
           <small>Gerenciar produtos</small>
@@ -213,14 +324,17 @@ export function AdminMenuPage() {
       <section className="admin-form-grid">
         <form className="admin-form" onSubmit={categorySubmit}>
           <h2>Nova categoria</h2>
+
           <label className="field">
             <span>Nome</span>
             <input name="name" required />
           </label>
-          <label className="field">
-            <span>Posição</span>
-            <input name="position" type="number" min="0" defaultValue="0" />
-          </label>
+
+          <p>
+            A nova categoria será criada no final do mostruário. Depois você
+            poderá escolher a posição exata na lista abaixo.
+          </p>
+
           <button className="primary" disabled={createCategory.isPending}>
             <Plus /> Criar categoria
           </button>
@@ -228,6 +342,7 @@ export function AdminMenuPage() {
 
         <form className="admin-form" onSubmit={productSubmit}>
           <h2>Novo produto</h2>
+
           <label className="field">
             <span>Categoria</span>
             <select name="categoryId" required>
@@ -239,14 +354,17 @@ export function AdminMenuPage() {
               ))}
             </select>
           </label>
+
           <label className="field">
             <span>Nome</span>
             <input name="name" required />
           </label>
+
           <label className="field">
             <span>Descrição</span>
             <textarea name="description" />
           </label>
+
           <div className="field-grid">
             <label className="field">
               <span>Preço em R$</span>
@@ -258,22 +376,111 @@ export function AdminMenuPage() {
                 required
               />
             </label>
+
             <label className="field">
-              <span>Posição</span>
+              <span>Posição dentro da categoria</span>
               <input name="position" type="number" min="0" defaultValue="0" />
             </label>
+
             <label className="field full">
               <span>URL da imagem</span>
               <input name="imageUrl" type="url" />
             </label>
           </div>
+
           <label className="admin-check">
             <input name="featured" type="checkbox" /> Produto em destaque
           </label>
+
           <button className="primary" disabled={createProduct.isPending}>
             <Plus /> Criar produto
           </button>
         </form>
+      </section>
+
+      <section className="admin-products">
+        <div className="section-title">
+          <div>
+            <h2>Categorias do mostruário</h2>
+            <small>A 1ª posição aparece primeiro para o cliente.</small>
+          </div>
+          <span>{categories.data?.length ?? 0} cadastradas</span>
+        </div>
+
+        {categories.data?.map((category, index) => (
+          <article className="admin-product" key={category.id}>
+            <div className="admin-product-main">
+              <div className="admin-product-placeholder">{index + 1}</div>
+              <div>
+                <small>
+                  {index + 1}ª posição · {category.active ? "publicada" : "oculta"}
+                </small>
+                <h3>{category.name}</h3>
+                <label className="field">
+                  <span>Posição no mostruário</span>
+                  <select
+                    value={index}
+                    disabled={reorderCategories.isPending}
+                    onChange={(event) =>
+                      reorderCategories.mutate({
+                        categoryId: category.id,
+                        targetIndex: Number(event.target.value),
+                      })
+                    }
+                  >
+                    {categories.data?.map((_, positionIndex) => (
+                      <option key={positionIndex} value={positionIndex}>
+                        {positionIndex + 1}ª posição
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="admin-product-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setEditingCategory(category)}
+              >
+                <Pencil /> Editar
+              </button>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  patch.mutate({
+                    path: `/admin/categories/${category.id}`,
+                    body: { active: !category.active },
+                  })
+                }
+              >
+                {category.active ? "Ocultar" : "Publicar"}
+              </button>
+
+              <button
+                type="button"
+                className="icon-button danger"
+                onClick={() =>
+                  confirm(
+                    `Excluir a categoria ${category.name}? Ela só poderá ser excluída se não possuir produtos.`,
+                  ) && remove.mutate(`/admin/categories/${category.id}`)
+                }
+                aria-label={`Excluir ${category.name}`}
+              >
+                <Trash2 />
+              </button>
+            </div>
+          </article>
+        ))}
+
+        {(remove.error || reorderCategories.error) && (
+          <p className="error-text">
+            {(remove.error ?? reorderCategories.error)?.message}
+          </p>
+        )}
       </section>
 
       <section className="admin-products">
@@ -290,6 +497,7 @@ export function AdminMenuPage() {
               ) : (
                 <div className="admin-product-placeholder">🍔</div>
               )}
+
               <div>
                 <small>
                   {product.category.name} · posição {product.position}
@@ -308,6 +516,7 @@ export function AdminMenuPage() {
               >
                 <Pencil /> Editar
               </button>
+
               <button
                 type="button"
                 className="secondary"
@@ -320,6 +529,7 @@ export function AdminMenuPage() {
               >
                 {product.soldOut ? "Marcar disponível" : "Marcar esgotado"}
               </button>
+
               <button
                 type="button"
                 className="secondary"
@@ -332,6 +542,7 @@ export function AdminMenuPage() {
               >
                 {product.active ? "Ocultar" : "Publicar"}
               </button>
+
               <button
                 type="button"
                 className="secondary"
@@ -339,6 +550,7 @@ export function AdminMenuPage() {
               >
                 Adicionar grupo
               </button>
+
               <button
                 type="button"
                 className="icon-button danger"
@@ -355,11 +567,46 @@ export function AdminMenuPage() {
             {product.optionGroups.map((group) => (
               <div className="admin-option-group" key={group.id}>
                 <div>
-                  <strong>{group.name}</strong>
-                  <button type="button" onClick={() => addOption(group.id)}>
-                    + opção
-                  </button>
+                  <div>
+                    <strong>{group.name}</strong>
+                    <small>
+                      {group.active ? "Ativo" : "Oculto"} · posição {group.position}
+                      {group.required ? " · obrigatório" : " · opcional"} · mínimo {group.minSelection} · máximo {group.maxSelection}
+                    </small>
+                  </div>
+
+                  <div className="admin-product-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setEditingGroup(group)}
+                    >
+                      <Pencil /> Editar grupo
+                    </button>
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => addOption(group.id)}
+                    >
+                      <Plus /> Opção
+                    </button>
+
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      onClick={() =>
+                        confirm(
+                          `Excluir o grupo ${group.name} e todas as opções dele?`,
+                        ) && remove.mutate(`/admin/option-groups/${group.id}`)
+                      }
+                      aria-label={`Excluir grupo ${group.name}`}
+                    >
+                      <Trash2 />
+                    </button>
+                  </div>
                 </div>
+
                 {group.options.map((option) => (
                   <span key={option.id}>
                     {option.name}{" "}
@@ -368,6 +615,7 @@ export function AdminMenuPage() {
                     <button
                       type="button"
                       onClick={() =>
+                        confirm(`Excluir a opção ${option.name}?`) &&
                         remove.mutate(`/admin/options/${option.id}`)
                       }
                       aria-label={`Excluir ${option.name}`}
@@ -389,7 +637,7 @@ export function AdminMenuPage() {
         >
           <form
             className="modal admin-edit-modal"
-            onSubmit={editSubmit}
+            onSubmit={editProductSubmit}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button
@@ -400,6 +648,7 @@ export function AdminMenuPage() {
             >
               <X />
             </button>
+
             <div className="modal-body admin-edit-form">
               <small>Editar produto</small>
               <h2>{editingProduct.name}</h2>
@@ -418,6 +667,7 @@ export function AdminMenuPage() {
                   ))}
                 </select>
               </label>
+
               <label className="field">
                 <span>Nome</span>
                 <input
@@ -426,6 +676,7 @@ export function AdminMenuPage() {
                   required
                 />
               </label>
+
               <label className="field">
                 <span>Descrição</span>
                 <textarea
@@ -433,6 +684,7 @@ export function AdminMenuPage() {
                   defaultValue={editingProduct.description}
                 />
               </label>
+
               <div className="field-grid">
                 <label className="field">
                   <span>Preço em R$</span>
@@ -445,6 +697,7 @@ export function AdminMenuPage() {
                     required
                   />
                 </label>
+
                 <label className="field">
                   <span>Posição no cardápio</span>
                   <input
@@ -454,6 +707,7 @@ export function AdminMenuPage() {
                     defaultValue={editingProduct.position}
                   />
                 </label>
+
                 <label className="field full">
                   <span>URL da imagem</span>
                   <input
@@ -473,6 +727,7 @@ export function AdminMenuPage() {
                   />{" "}
                   Destaque
                 </label>
+
                 <label className="admin-check">
                   <input
                     name="active"
@@ -481,6 +736,7 @@ export function AdminMenuPage() {
                   />{" "}
                   Publicado
                 </label>
+
                 <label className="admin-check">
                   <input
                     name="soldOut"
@@ -494,8 +750,162 @@ export function AdminMenuPage() {
               {editProduct.error && (
                 <p className="error-text">{editProduct.error.message}</p>
               )}
+
               <button className="primary" disabled={editProduct.isPending}>
                 {editProduct.isPending ? "Salvando..." : "Salvar alterações"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingCategory && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => setEditingCategory(null)}
+        >
+          <form
+            className="modal admin-edit-modal"
+            onSubmit={editCategorySubmit}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="icon-button close"
+              type="button"
+              onClick={() => setEditingCategory(null)}
+              aria-label="Fechar edição da categoria"
+            >
+              <X />
+            </button>
+
+            <div className="modal-body admin-edit-form">
+              <small>Editar categoria</small>
+              <h2>{editingCategory.name}</h2>
+
+              <label className="field">
+                <span>Nome</span>
+                <input
+                  name="name"
+                  defaultValue={editingCategory.name}
+                  required
+                />
+              </label>
+
+              <label className="admin-check">
+                <input
+                  name="active"
+                  type="checkbox"
+                  defaultChecked={editingCategory.active}
+                />{" "}
+                Exibir no mostruário
+              </label>
+
+              {editCategory.error && (
+                <p className="error-text">{editCategory.error.message}</p>
+              )}
+
+              <button className="primary" disabled={editCategory.isPending}>
+                {editCategory.isPending ? "Salvando..." : "Salvar categoria"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingGroup && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => setEditingGroup(null)}
+        >
+          <form
+            className="modal admin-edit-modal"
+            onSubmit={editGroupSubmit}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="icon-button close"
+              type="button"
+              onClick={() => setEditingGroup(null)}
+              aria-label="Fechar edição do grupo"
+            >
+              <X />
+            </button>
+
+            <div className="modal-body admin-edit-form">
+              <small>Editar grupo de opções</small>
+              <h2>{editingGroup.name}</h2>
+
+              <label className="field">
+                <span>Nome do grupo</span>
+                <input
+                  name="name"
+                  defaultValue={editingGroup.name}
+                  required
+                />
+              </label>
+
+              <div className="field-grid">
+                <label className="field">
+                  <span>Mínimo de escolhas</span>
+                  <input
+                    name="minSelection"
+                    type="number"
+                    min="0"
+                    max="20"
+                    defaultValue={editingGroup.minSelection}
+                    required
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Máximo de escolhas</span>
+                  <input
+                    name="maxSelection"
+                    type="number"
+                    min="1"
+                    max="20"
+                    defaultValue={editingGroup.maxSelection}
+                    required
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Posição do grupo</span>
+                  <input
+                    name="position"
+                    type="number"
+                    min="0"
+                    defaultValue={editingGroup.position}
+                  />
+                </label>
+              </div>
+
+              <div className="edit-check-grid">
+                <label className="admin-check">
+                  <input
+                    name="required"
+                    type="checkbox"
+                    defaultChecked={editingGroup.required}
+                  />{" "}
+                  Grupo obrigatório
+                </label>
+
+                <label className="admin-check">
+                  <input
+                    name="active"
+                    type="checkbox"
+                    defaultChecked={editingGroup.active}
+                  />{" "}
+                  Grupo ativo
+                </label>
+              </div>
+
+              {editGroup.error && (
+                <p className="error-text">{editGroup.error.message}</p>
+              )}
+
+              <button className="primary" disabled={editGroup.isPending}>
+                {editGroup.isPending ? "Salvando..." : "Salvar grupo"}
               </button>
             </div>
           </form>
