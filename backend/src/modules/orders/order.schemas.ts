@@ -26,6 +26,7 @@ export const addressSchema = z.object({
 export const createOrderSchema = z.object({
   customerName: z.string().trim().min(2).max(100),
   customerPhone: z.string().trim().min(10).max(20),
+  whatsappOptIn: z.boolean().default(false),
   customerEmail: z.string().trim().email().max(150),
   customerDocument: z.string().trim().max(20).optional(),
   fulfillment: z.enum(["DELIVERY", "PICKUP"]),

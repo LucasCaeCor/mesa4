@@ -3,6 +3,8 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError } from "../../lib/http-error.js";
 import { createPublicOrderId, createTrackingToken, hashTrackingToken } from "../../lib/tracking.js";
 import { createPixPayment } from "../payments/mercado-pago.service.js";
+import { createManualPixPayment } from "../payments/manual-pix.service.js";
+import { sendOrderStatusWhatsApp } from "../whatsapp/whatsapp-cloud.service.js";
 import { calculateDeliveryQuote } from "../delivery/openroute.service.js";
 import type { z } from "zod";
 import type { createOrderSchema } from "./order.schemas.js";
@@ -105,7 +107,12 @@ export async function createOrder(input: CreateOrderInput) {
   const totalCents = subtotalCents + deliveryFeeCents;
   const publicId = createPublicOrderId();
   const trackingToken = createTrackingToken();
-  const idempotencyKey = `pix-${publicId}`;
+  const paymentMode =
+    settings.pixPaymentMode ?? "MERCADO_PAGO";
+  const idempotencyKey =
+    paymentMode === "MANUAL"
+      ? `manual-pix-${publicId}`
+      : `pix-${publicId}`;
 
   const order = await prisma.order.create({
     data: {
@@ -113,6 +120,8 @@ export async function createOrder(input: CreateOrderInput) {
       trackingTokenHash: hashTrackingToken(trackingToken),
       customerName: input.customerName,
       customerPhone: input.customerPhone.replace(/\D/g, ""),
+      whatsappOptIn: input.whatsappOptIn,
+      whatsappOptInAt: input.whatsappOptIn ? new Date() : undefined,
       customerEmail: input.customerEmail.toLowerCase(),
       customerDocument: input.customerDocument?.replace(/\D/g, ""),
       fulfillment: input.fulfillment,
@@ -136,6 +145,10 @@ export async function createOrder(input: CreateOrderInput) {
       statusHistory: { create: { status: "PENDING_PAYMENT", note: "Pedido criado" } },
       payments: {
         create: {
+          provider:
+            paymentMode === "MANUAL"
+              ? "MANUAL_PIX"
+              : "MERCADO_PAGO",
           amountCents: totalCents,
           idempotencyKey,
           status: "PENDING",
@@ -146,38 +159,115 @@ export async function createOrder(input: CreateOrderInput) {
   });
 
   try {
-    const mpPayment = await createPixPayment({
-      amountCents: totalCents,
-      description: `Pedido ${publicId} - Mesa IV Burgers`,
-      email: input.customerEmail,
-      firstName: input.customerName.split(" ")[0] ?? input.customerName,
-      externalReference: publicId,
-      idempotencyKey,
-    });
-    const transactionData = mpPayment.point_of_interaction?.transaction_data;
-    const paymentStatus = mapPaymentStatus(mpPayment.status);
-    await prisma.payment.update({
-      where: { idempotencyKey },
-      data: {
-        providerPaymentId: String(mpPayment.id),
-        status: paymentStatus,
-        statusDetail: mpPayment.status_detail,
-        qrCode: transactionData?.qr_code,
-        qrCodeBase64: transactionData?.qr_code_base64,
-        ticketUrl: transactionData?.ticket_url,
-        expiresAt: mpPayment.date_of_expiration ? new Date(mpPayment.date_of_expiration) : undefined,
-        rawResponse: mpPayment as unknown as Prisma.InputJsonValue,
-      },
-    });
-    if (paymentStatus === "APPROVED") {
-      await prisma.order.update({
-        where: { id: order.id },
+    if (paymentMode === "MANUAL") {
+      if (
+        !settings.manualPixKeyType ||
+        !settings.manualPixKey ||
+        !settings.manualPixReceiverName ||
+        !settings.manualPixReceiverCity
+      ) {
+        throw new HttpError(
+          409,
+          "O Pix manual ainda não foi configurado no painel",
+          "MANUAL_PIX_NOT_CONFIGURED",
+        );
+      }
+
+      const manualPayment =
+        await createManualPixPayment({
+          keyType: settings.manualPixKeyType,
+          key: settings.manualPixKey,
+          receiverName:
+            settings.manualPixReceiverName,
+          receiverCity:
+            settings.manualPixReceiverCity,
+          amountCents: totalCents,
+          txid: publicId,
+        });
+
+      await prisma.payment.update({
+        where: { idempotencyKey },
         data: {
-          status: "PAID",
-          paidAt: new Date(),
-          statusHistory: { create: { status: "PAID", note: "Pagamento PIX aprovado" } },
+          provider: manualPayment.provider,
+          providerPaymentId:
+            manualPayment.txid,
+          qrCode: manualPayment.qrCode,
+          qrCodeBase64:
+            manualPayment.qrCodeBase64,
+          statusDetail:
+            "AWAITING_MANUAL_CONFIRMATION",
+          rawResponse: {
+            txid: manualPayment.txid,
+            mode: "STATIC_PIX",
+          } as Prisma.InputJsonValue,
         },
       });
+    } else {
+      const mpPayment = await createPixPayment({
+        amountCents: totalCents,
+        description:
+          `Pedido ${publicId} - Mesa IV Burgers`,
+        email: input.customerEmail,
+        firstName:
+          input.customerName.split(" ")[0] ??
+          input.customerName,
+        externalReference: publicId,
+        idempotencyKey,
+      });
+
+      const transactionData =
+        mpPayment.point_of_interaction
+          ?.transaction_data;
+      const paymentStatus =
+        mapPaymentStatus(mpPayment.status);
+
+      await prisma.payment.update({
+        where: { idempotencyKey },
+        data: {
+          providerPaymentId: String(mpPayment.id),
+          status: paymentStatus,
+          statusDetail: mpPayment.status_detail,
+          qrCode: transactionData?.qr_code,
+          qrCodeBase64:
+            transactionData?.qr_code_base64,
+          ticketUrl: transactionData?.ticket_url,
+          expiresAt: mpPayment.date_of_expiration
+            ? new Date(
+                mpPayment.date_of_expiration,
+              )
+            : undefined,
+          rawResponse:
+            mpPayment as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      if (paymentStatus === "APPROVED") {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: "PAID",
+            paidAt: new Date(),
+            statusHistory: {
+              create: {
+                status: "PAID",
+                note: "Pagamento PIX aprovado",
+              },
+            },
+          },
+        });
+
+        await sendOrderStatusWhatsApp(order.id, {
+          source: "AUTO",
+        }).catch((error) => {
+          console.error(
+            "WhatsApp automatic notification failed",
+            {
+              orderId: order.id,
+              error,
+            },
+          );
+        });
+      }
     }
   } catch (error) {
     await prisma.order.update({
@@ -185,13 +275,85 @@ export async function createOrder(input: CreateOrderInput) {
       data: {
         status: "CANCELED",
         canceledAt: new Date(),
-        statusHistory: { create: { status: "CANCELED", note: "Falha ao gerar pagamento" } },
+        statusHistory: {
+          create: {
+            status: "CANCELED",
+            note: "Falha ao gerar pagamento",
+          },
+        },
       },
     });
+
     throw error;
   }
 
-  return getOrderForCustomer(publicId, trackingToken);
+  return getOrderForCustomer(
+    publicId,
+    trackingToken,
+  );
+}
+
+export async function reportManualPayment(
+  publicId: string,
+  trackingToken: string,
+) {
+  const order = await prisma.order.findUnique({
+    where: { publicId },
+    include: {
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  if (
+    !order ||
+    hashTrackingToken(trackingToken) !==
+      order.trackingTokenHash
+  ) {
+    throw new HttpError(
+      404,
+      "Pedido não encontrado",
+      "ORDER_NOT_FOUND",
+    );
+  }
+
+  const payment = order.payments[0];
+
+  if (
+    !payment ||
+    payment.provider !== "MANUAL_PIX"
+  ) {
+    throw new HttpError(
+      409,
+      "Este pedido não utiliza Pix manual",
+      "NOT_MANUAL_PIX",
+    );
+  }
+
+  if (order.status !== "PENDING_PAYMENT") {
+    return getOrderForCustomer(
+      publicId,
+      trackingToken,
+    );
+  }
+
+  if (!payment.reportedAt) {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        reportedAt: new Date(),
+        statusDetail:
+          "CUSTOMER_REPORTED_PAYMENT",
+      },
+    });
+  }
+
+  return getOrderForCustomer(
+    publicId,
+    trackingToken,
+  );
 }
 
 export async function getOrderForCustomer(publicId: string, trackingToken: string) {
@@ -222,7 +384,10 @@ export async function getOrderForCustomer(publicId: string, trackingToken: strin
       statusHistory: order.statusHistory,
     },
     payment: payment ? {
+      provider: payment.provider,
       status: payment.status,
+      statusDetail: payment.statusDetail,
+      reportedAt: payment.reportedAt,
       qrCode: payment.qrCode,
       qrCodeBase64: payment.qrCodeBase64,
       ticketUrl: payment.ticketUrl,

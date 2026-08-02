@@ -186,3 +186,234 @@
     text-align: left;
   }
 }
+
+.whatsapp-opt-in {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin: 0.5rem 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(37, 211, 102, 0.28);
+  border-radius: 14px;
+  background: rgba(37, 211, 102, 0.08);
+  cursor: pointer;
+}
+
+.whatsapp-opt-in input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  accent-color: #25d366;
+}
+
+.whatsapp-opt-in span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.whatsapp-opt-in strong {
+  color: #f7f7f7;
+}
+
+.whatsapp-opt-in small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.whatsapp-admin-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.whatsapp-admin-status > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.whatsapp-opted-in {
+  color: #70f2a0;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.25);
+}
+
+.whatsapp-opted-out {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.whatsapp-admin-status small {
+  color: var(--muted);
+}
+
+.whatsapp-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
+.whatsapp-admin-actions .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+@media (max-width: 640px) {
+  .whatsapp-admin-actions {
+    justify-content: stretch;
+  }
+
+  .whatsapp-admin-actions .secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.payment-mode-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.payment-mode-section > p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.payment-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.9rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.payment-mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #161411;
+  cursor: pointer;
+}
+
+.payment-mode-card.selected {
+  border-color: var(--orange);
+  background: rgba(255, 107, 26, 0.08);
+}
+
+.payment-mode-card input {
+  margin-top: 0.25rem;
+  accent-color: var(--orange);
+}
+
+.payment-mode-card span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.payment-mode-card small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.manual-pix-fields {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 196, 61, 0.25);
+  border-radius: 14px;
+  background: rgba(255, 196, 61, 0.05);
+}
+
+.manual-pix-warning {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #e9c96f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.manual-pix-customer {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.manual-pix-customer > p,
+.pix-provider-note {
+  margin: 0;
+  color: #4e473f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.manual-pix-customer .primary {
+  width: 100%;
+}
+
+.manual-payment-reported {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  border-radius: 11px;
+  background: rgba(24, 135, 65, 0.12);
+  color: #176b36;
+  font-weight: 700;
+}
+
+.payment-provider-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.payment-provider-chip,
+.manual-report-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.payment-provider-chip {
+  color: #f1d071;
+  background: rgba(255, 196, 61, 0.1);
+  border: 1px solid rgba(255, 196, 61, 0.2);
+}
+
+.payment-provider-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.manual-report-chip {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.manual-report-chip.reported {
+  color: #7ae599;
+  background: rgba(54, 210, 103, 0.1);
+  border-color: rgba(54, 210, 103, 0.22);
+}
+
+@media (max-width: 700px) {
+  .payment-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}

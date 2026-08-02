@@ -34,6 +34,21 @@ services:
       - key: MERCADO_PAGO_WEBHOOK_SECRET
         sync: false
 
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+
+      - key: WHATSAPP_TEMPLATE_NAME
+        value: pedido_status
+
+      - key: WHATSAPP_TEMPLATE_LANGUAGE
+        value: pt_BR
+
+      - key: WHATSAPP_GRAPH_API_VERSION
+        value: v25.0
+
       - key: OPENROUTESERVICE_API_KEY
         sync: false
 

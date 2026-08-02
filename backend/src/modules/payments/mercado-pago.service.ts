@@ -40,7 +40,15 @@ async function mercadoPagoRequest<T>(path: string, init?: RequestInit): Promise<
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    console.error("Mercado Pago error", response.status, data);
+    
+  if (!env.MERCADO_PAGO_ACCESS_TOKEN) {
+    throw new HttpError(
+      503,
+      "O Mercado Pago não está configurado",
+      "MERCADO_PAGO_NOT_CONFIGURED",
+    );
+  }
+console.error("Mercado Pago error", response.status, data);
     throw new HttpError(502, "Não foi possível gerar o PIX agora", "PAYMENT_PROVIDER_ERROR");
   }
   return data as T;

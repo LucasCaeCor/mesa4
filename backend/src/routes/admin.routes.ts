@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { HttpError } from "../lib/http-error.js";
 import { slugify } from "../lib/slug.js";
+import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
 const orderStatusSchema = z.object({
@@ -69,25 +70,138 @@ const businessHourSchema = z.object({
 
 const settingsSchema = z.object({
   storeName: z.string().trim().min(2).max(100),
-  description: z.string().trim().max(500).optional(),
-  whatsappNumber: z.string().regex(/^\d{10,15}$/),
-  instagramUrl: z.string().url().optional().or(z.literal("")),
-  logoUrl: z.string().url().optional().or(z.literal("")),
-  heroImageUrl: z.string().url().optional().or(z.literal("")),
-  pickupAddress: z.string().trim().max(200).optional(),
-  minimumOrderCents: z.coerce.number().int().min(0),
-  deliveryFeeCents: z.coerce.number().int().min(0),
-  dynamicDeliveryEnabled: z.boolean().default(false),
-  deliveryBaseFeeCents: z.coerce.number().int().min(0).default(0),
-  deliveryIncludedKm: z.coerce.number().min(0).max(100).default(0),
-  deliveryPricePerKmCents: z.coerce.number().int().min(0).default(0),
-  deliveryMaxDistanceKm: z.coerce.number().positive().max(100).default(15),
-  defaultPrepMinutes: z.coerce.number().int().min(1).max(300),
+  description: z
+    .string()
+    .trim()
+    .max(500)
+    .optional(),
+  whatsappNumber: z
+    .string()
+    .regex(/^\d{10,15}$/),
+  instagramUrl: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal("")),
+  logoUrl: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal("")),
+  heroImageUrl: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal("")),
+  pickupAddress: z
+    .string()
+    .trim()
+    .max(200)
+    .optional(),
+  minimumOrderCents: z.coerce
+    .number()
+    .int()
+    .min(0),
+  deliveryFeeCents: z.coerce
+    .number()
+    .int()
+    .min(0),
+  dynamicDeliveryEnabled: z
+    .boolean()
+    .default(false),
+  deliveryBaseFeeCents: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .default(0),
+  deliveryIncludedKm: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .default(0),
+  deliveryPricePerKmCents: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .default(0),
+  deliveryMaxDistanceKm: z.coerce
+    .number()
+    .positive()
+    .max(100)
+    .default(15),
+  defaultPrepMinutes: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(300),
   acceptingOrders: z.boolean(),
   pixEnabled: z.boolean(),
+  pixPaymentMode: z
+    .enum(["MERCADO_PAGO", "MANUAL"])
+    .default("MERCADO_PAGO"),
+  manualPixKeyType: z
+    .enum([
+      "CPF",
+      "CNPJ",
+      "EMAIL",
+      "PHONE",
+      "RANDOM",
+    ])
+    .optional(),
+  manualPixKey: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .or(z.literal("")),
+  manualPixReceiverName: z
+    .string()
+    .trim()
+    .max(25)
+    .optional()
+    .or(z.literal("")),
+  manualPixReceiverCity: z
+    .string()
+    .trim()
+    .max(15)
+    .optional()
+    .or(z.literal("")),
   whatsappConfirmation: z.boolean(),
-});
+  whatsappNotificationsEnabled: z
+    .boolean()
+    .default(false),
+}).superRefine((data, ctx) => {
+  if (data.pixPaymentMode !== "MANUAL") {
+    return;
+  }
 
+  const requiredFields = [
+    [
+      "manualPixKeyType",
+      data.manualPixKeyType,
+    ],
+    ["manualPixKey", data.manualPixKey],
+    [
+      "manualPixReceiverName",
+      data.manualPixReceiverName,
+    ],
+    [
+      "manualPixReceiverCity",
+      data.manualPixReceiverCity,
+    ],
+  ] as const;
+
+  for (const [path, value] of requiredFields) {
+    if (!value) {
+      ctx.addIssue({
+        code: "custom",
+        path: [path],
+        message:
+          "Campo obrigatório no modo Pix manual",
+      });
+    }
+  }
+});
 async function audit(request: any, action: string, entity: string, entityId?: string, metadata?: unknown) {
   await prisma.auditLog.create({
     data: {
@@ -134,24 +248,176 @@ export async function adminRoutes(app: FastifyInstance) {
       where: status ? { status } : {},
       orderBy: { createdAt: "desc" },
       take: query.limit,
-      include: { items: { include: { options: true } }, payments: { orderBy: { createdAt: "desc" }, take: 1 } },
+      include: {
+        items: { include: { options: true } },
+        payments: { orderBy: { createdAt: "desc" }, take: 1 },
+        whatsappNotifications: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
     });
   });
 
-  app.patch("/admin/orders/:id/status", { preHandler: app.authenticateAdmin }, async (request) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params);
-    const input = orderStatusSchema.parse(request.body);
-    const order = await prisma.order.update({
-      where: { id },
-      data: {
-        status: input.status,
-        canceledAt: input.status === "CANCELED" ? new Date() : undefined,
-        statusHistory: { create: { status: input.status, note: input.note } },
-      },
-    });
-    await audit(request, "UPDATE_STATUS", "ORDER", id, input);
-    return order;
-  });
+  app.patch(
+    "/admin/orders/:id/status",
+    { preHandler: app.authenticateAdmin },
+    async (request) => {
+      const { id } = z
+        .object({ id: z.string() })
+        .parse(request.params);
+      const input = orderStatusSchema.parse(
+        request.body,
+      );
+
+      const currentOrder =
+        await prisma.order.findUnique({
+          where: { id },
+          include: {
+            payments: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        });
+
+      if (!currentOrder) {
+        throw new HttpError(
+          404,
+          "Pedido não encontrado",
+          "ORDER_NOT_FOUND",
+        );
+      }
+
+      const payment = currentOrder.payments[0];
+
+      if (
+        input.status === "PAID" &&
+        currentOrder.status ===
+          "PENDING_PAYMENT"
+      ) {
+        if (
+          !payment ||
+          payment.provider !== "MANUAL_PIX"
+        ) {
+          throw new HttpError(
+            409,
+            "Pagamentos do Mercado Pago são confirmados automaticamente",
+            "AUTOMATIC_PAYMENT_CONFIRMATION",
+          );
+        }
+
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "APPROVED",
+            statusDetail:
+              "MANUALLY_CONFIRMED_BY_ADMIN",
+          },
+        });
+      }
+
+      if (
+        input.status === "CANCELED" &&
+        payment?.provider === "MANUAL_PIX" &&
+        payment.status === "PENDING"
+      ) {
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "CANCELED",
+            statusDetail:
+              "CANCELED_BY_ADMIN",
+          },
+        });
+      }
+
+      const note =
+        input.note ??
+        (input.status === "PAID" &&
+        payment?.provider === "MANUAL_PIX"
+          ? "Pagamento Pix manual confirmado"
+          : undefined);
+
+      const order = await prisma.order.update({
+        where: { id },
+        data: {
+          status: input.status,
+          paidAt:
+            input.status === "PAID"
+              ? currentOrder.paidAt ??
+                new Date()
+              : undefined,
+          canceledAt:
+            input.status === "CANCELED"
+              ? new Date()
+              : undefined,
+          statusHistory: {
+            create: {
+              status: input.status,
+              note,
+            },
+          },
+        },
+      });
+
+      await audit(
+        request,
+        "UPDATE_STATUS",
+        "ORDER",
+        id,
+        input,
+      );
+
+      const whatsapp =
+        await sendOrderStatusWhatsApp(
+          order.id,
+          {
+            source: "AUTO",
+          },
+        ).catch((error) => {
+          request.log.error(
+            {
+              err: error,
+              orderId: order.id,
+            },
+            "WhatsApp automatic notification failed",
+          );
+
+          return { sent: false };
+        });
+
+      return {
+        ...order,
+        whatsapp,
+      };
+    },
+  );
+
+
+  app.post(
+    "/admin/orders/:id/whatsapp",
+    { preHandler: app.authenticateAdmin },
+    async (request) => {
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+
+      const result = await sendOrderStatusWhatsApp(id, {
+        source: "MANUAL",
+        force: true,
+        throwOnError: true,
+      });
+
+      await audit(
+        request,
+        "SEND_WHATSAPP",
+        "ORDER",
+        id,
+        result,
+      );
+
+      return result;
+    },
+  );
 
   app.get("/admin/categories", { preHandler: app.authenticateAdmin }, async () => prisma.category.findMany({ orderBy: [{ position: "asc" }, { createdAt: "desc" }] }));
   app.post("/admin/categories", { preHandler: app.authenticateAdmin }, async (request, reply) => {

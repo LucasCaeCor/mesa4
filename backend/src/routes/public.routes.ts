@@ -2,21 +2,53 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { addressSchema, createOrderSchema } from "../modules/orders/order.schemas.js";
-import { createOrder, getOrderForCustomer } from "../modules/orders/order.service.js";
+import {
+  createOrder,
+  getOrderForCustomer,
+  reportManualPayment,
+} from "../modules/orders/order.service.js";
 import { buildWhatsAppMessage } from "../lib/whatsapp.js";
 import { lookupAddressByCep } from "../modules/address/cep.service.js";
 import { calculateDeliveryQuote } from "../modules/delivery/openroute.service.js";
 
 export async function publicRoutes(app: FastifyInstance) {
   app.get("/store", async () => {
-    const [settings, hours, deliveryZones] = await Promise.all([
-      prisma.storeSettings.findUnique({ where: { singletonKey: "default" } }),
-      prisma.businessHour.findMany({ orderBy: { weekday: "asc" } }),
-      prisma.deliveryZone.findMany({ where: { active: true }, orderBy: [{ position: "asc" }, { name: "asc" }] }),
-    ]);
-    return { settings, hours, deliveryZones };
-  });
+    const [settings, hours, deliveryZones] =
+      await Promise.all([
+        prisma.storeSettings.findUnique({
+          where: { singletonKey: "default" },
+        }),
+        prisma.businessHour.findMany({
+          orderBy: { weekday: "asc" },
+        }),
+        prisma.deliveryZone.findMany({
+          where: { active: true },
+          orderBy: [
+            { position: "asc" },
+            { name: "asc" },
+          ],
+        }),
+      ]);
 
+    const publicSettings = settings
+      ? {
+          ...settings,
+          manualPixKey: undefined,
+          manualPixKeyType: undefined,
+          manualPixReceiverName: undefined,
+          manualPixReceiverCity: undefined,
+          pixPaymentMode:
+            settings.pixPaymentMode ??
+            "MERCADO_PAGO",
+        }
+      : settings;
+
+    return {
+      settings: publicSettings,
+      hours,
+      deliveryZones,
+    };
+  });
   app.get("/menu", async () => {
     const categories = await prisma.category.findMany({
       where: { active: true },
@@ -69,6 +101,31 @@ export async function publicRoutes(app: FastifyInstance) {
     const result = await createOrder(input);
     return reply.code(201).send(result);
   });
+  app.post(
+    "/orders/:publicId/payment-reported",
+    {
+      config: {
+        rateLimit: {
+          max: 8,
+          timeWindow: "15 minutes",
+        },
+      },
+    },
+    async (request) => {
+      const params = z
+        .object({ publicId: z.string() })
+        .parse(request.params);
+      const query = z
+        .object({ token: z.string().min(20) })
+        .parse(request.query);
+
+      return reportManualPayment(
+        params.publicId,
+        query.token,
+      );
+    },
+  );
+
 
   app.get("/orders/:publicId", async (request) => {
     const params = z.object({ publicId: z.string() }).parse(request.params);

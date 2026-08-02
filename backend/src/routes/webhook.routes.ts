@@ -3,6 +3,7 @@ import type { PaymentStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getMercadoPagoPayment, validateMercadoPagoSignature } from "../modules/payments/mercado-pago.service.js";
+import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
 
 function mapPaymentStatus(status: string): PaymentStatus {
   const statuses: Record<string, PaymentStatus> = {
@@ -96,6 +97,14 @@ if (!localPayment && payment.external_reference) {
           paidAt: new Date(),
           statusHistory: { create: { status: "PAID", note: "Pagamento PIX aprovado" } },
         },
+      });
+          await sendOrderStatusWhatsApp(localPayment.orderId, {
+        source: "AUTO",
+      }).catch((error) => {
+        request.log.error(
+          { err: error, orderId: localPayment.orderId },
+          "WhatsApp automatic notification failed",
+        );
       });
     }
 

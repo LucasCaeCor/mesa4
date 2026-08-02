@@ -8,8 +8,13 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32),
   FRONTEND_URLS: z.string().default("http://localhost:5173"),
   API_PUBLIC_URL: z.string().url(),
-  MERCADO_PAGO_ACCESS_TOKEN: z.string().min(1),
+  MERCADO_PAGO_ACCESS_TOKEN: z.string().optional().default(""),
   MERCADO_PAGO_WEBHOOK_SECRET: z.string().optional().default(""),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional().default(""),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional().default(""),
+  WHATSAPP_TEMPLATE_NAME: z.string().trim().min(1).default("pedido_status"),
+  WHATSAPP_TEMPLATE_LANGUAGE: z.string().trim().min(2).default("pt_BR"),
+  WHATSAPP_GRAPH_API_VERSION: z.string().regex(/^v\d+\.\d+$/).default("v25.0"),
   OPENROUTESERVICE_API_KEY: z.string().optional().default(""),
 });
 

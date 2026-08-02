@@ -148,6 +148,7 @@ export function CheckoutPage() {
     mutation.mutate({
       customerName: form.get("name"),
       customerPhone: form.get("phone"),
+      whatsappOptIn: form.get("whatsappOptIn") === "on",
       customerEmail: form.get("email"),
       customerDocument: form.get("document") || undefined,
       fulfillment,
@@ -239,6 +240,21 @@ export function CheckoutPage() {
               <input name="document" inputMode="numeric" />
             </label>
           </div>
+
+
+          <label className="whatsapp-opt-in">
+            <input
+              name="whatsappOptIn"
+              type="checkbox"
+            />
+            <span>
+              <strong>Receber atualizações pelo WhatsApp</strong>
+              <small>
+                A Mesa IV Burgers poderá avisar sobre pagamento,
+                preparo, saída para entrega e conclusão deste pedido.
+              </small>
+            </span>
+          </label>
 
           {fulfillment === "DELIVERY" && (
             <>
@@ -441,7 +457,10 @@ export function CheckoutPage() {
             <strong>{formatMoney(total)}</strong>
           </div>
           <p className="payment-note">
-            Pagamento seguro por PIX. O preço final é recalculado pelo servidor.
+            {store.data?.settings.pixPaymentMode ===
+            "MANUAL"
+              ? "Pix direto para a chave da loja. Depois de pagar, avise pelo acompanhamento e aguarde a conferência."
+              : "Pagamento seguro por PIX com confirmação automática. O preço final é recalculado pelo servidor."}
           </p>
           {mutation.error && (
             <p className="error-text">{mutation.error.message}</p>

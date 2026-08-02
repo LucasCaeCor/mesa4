@@ -3,7 +3,43 @@ export type ProductOptionGroup = { id: string; name: string; required: boolean; 
 export type Product = { id: string; name: string; description?: string; priceCents: number; imageUrl?: string; featured: boolean; soldOut: boolean; optionGroups: ProductOptionGroup[] };
 export type Category = { id: string; name: string; slug: string; products: Product[] };
 export type DeliveryZone = { id: string; name: string; feeCents: number; minimumOrderCents: number; estimatedMinutes?: number };
-export type StoreSettings = { storeName: string; description?: string; whatsappNumber: string; instagramUrl?: string; logoUrl?: string; heroImageUrl?: string; pickupAddress?: string; minimumOrderCents: number; deliveryFeeCents?: number | null; dynamicDeliveryEnabled?: boolean | null; deliveryBaseFeeCents?: number | null; deliveryIncludedKm?: number | null; deliveryPricePerKmCents?: number | null; deliveryMaxDistanceKm?: number | null; defaultPrepMinutes: number; acceptingOrders: boolean; pixEnabled: boolean; whatsappConfirmation: boolean };
+export type StoreSettings = {
+  storeName: string;
+  description?: string;
+  whatsappNumber: string;
+  instagramUrl?: string;
+  logoUrl?: string;
+  heroImageUrl?: string;
+  pickupAddress?: string;
+  minimumOrderCents: number;
+  deliveryFeeCents?: number | null;
+  dynamicDeliveryEnabled?: boolean | null;
+  deliveryBaseFeeCents?: number | null;
+  deliveryIncludedKm?: number | null;
+  deliveryPricePerKmCents?: number | null;
+  deliveryMaxDistanceKm?: number | null;
+  defaultPrepMinutes: number;
+  acceptingOrders: boolean;
+  pixEnabled: boolean;
+  pixPaymentMode?:
+    | "MERCADO_PAGO"
+    | "MANUAL"
+    | null;
+  manualPixKeyType?:
+    | "CPF"
+    | "CNPJ"
+    | "EMAIL"
+    | "PHONE"
+    | "RANDOM"
+    | null;
+  manualPixKey?: string | null;
+  manualPixReceiverName?: string | null;
+  manualPixReceiverCity?: string | null;
+  whatsappConfirmation: boolean;
+  whatsappNotificationsEnabled?:
+    | boolean
+    | null;
+};
 export type StoreResponse = { settings: StoreSettings; hours: Array<{ weekday: number; enabled: boolean; opensAt: string; closesAt: string }>; deliveryZones: DeliveryZone[] };
 export type MenuResponse = { categories: Category[] };
 export type CartSelection = { optionId: string; optionName: string; groupName: string; priceCents: number; quantity: number };

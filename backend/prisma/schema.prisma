@@ -41,6 +41,19 @@ enum PaymentMethod {
   PIX
 }
 
+enum PixPaymentMode {
+  MERCADO_PAGO
+  MANUAL
+}
+
+enum PixKeyType {
+  CPF
+  CNPJ
+  EMAIL
+  PHONE
+  RANDOM
+}
+
 model AdminUser {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   name         String
@@ -153,7 +166,13 @@ model StoreSettings {
   defaultPrepMinutes        Int      @default(40)
   acceptingOrders      Boolean  @default(true)
   pixEnabled           Boolean  @default(true)
-  whatsappConfirmation Boolean  @default(true)
+  pixPaymentMode        PixPaymentMode? @default(MERCADO_PAGO)
+  manualPixKeyType      PixKeyType?
+  manualPixKey          String?
+  manualPixReceiverName String?
+  manualPixReceiverCity String?
+  whatsappConfirmation       Boolean  @default(true)
+  whatsappNotificationsEnabled Boolean? @default(false)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
@@ -164,6 +183,8 @@ model Order {
   trackingTokenHash     String
   customerName          String
   customerPhone         String
+  whatsappOptIn        Boolean? @default(false)
+  whatsappOptInAt      DateTime?
   customerEmail         String
   customerDocument      String?
   fulfillment           FulfillmentType
@@ -193,6 +214,8 @@ model Order {
   items                  OrderItem[]
   payments               Payment[]
   statusHistory          OrderStatusHistory[]
+
+  whatsappNotifications WhatsAppNotification[]
 
   @@index([status, createdAt])
   @@index([customerPhone])
@@ -241,6 +264,7 @@ model Payment {
   qrCodeBase64          String?
   ticketUrl             String?
   expiresAt             DateTime?
+  reportedAt            DateTime?
   rawResponse           Json?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -258,6 +282,25 @@ model OrderStatusHistory {
   createdAt DateTime    @default(now())
 
   @@index([orderId, createdAt])
+}
+
+model WhatsAppNotification {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  orderId           String      @db.ObjectId
+  order             Order       @relation(fields: [orderId], references: [id])
+  orderStatus       OrderStatus
+  templateName      String
+  source            String      @default("AUTO")
+  deliveryStatus    String      @default("SENDING")
+  providerMessageId String?
+  errorMessage      String?
+  providerResponse  Json?
+  sentAt            DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([orderId, createdAt])
+  @@index([providerMessageId])
 }
 
 model WebhookEvent {
