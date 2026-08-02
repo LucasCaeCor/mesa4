@@ -36,14 +36,24 @@ const zoneSchema = z.object({
   active: z.boolean().default(true),
   position: z.coerce.number().int().min(0).default(0),
 });
-const optionGroupSchema = z.object({
+const optionGroupBaseSchema = z.object({
   name: z.string().trim().min(2).max(100),
   required: z.boolean().default(false),
   minSelection: z.coerce.number().int().min(0).default(0),
   maxSelection: z.coerce.number().int().min(1).max(20).default(1),
   position: z.coerce.number().int().min(0).default(0),
   active: z.boolean().default(true),
-}).refine((data) => data.minSelection <= data.maxSelection, { message: "Seleção mínima não pode ser maior que a máxima" });
+});
+
+const optionGroupSchema = optionGroupBaseSchema.refine(
+  (data) => data.minSelection <= data.maxSelection,
+  {
+    message: "Seleção mínima não pode ser maior que a máxima",
+    path: ["minSelection"],
+  },
+);
+
+const optionGroupUpdateSchema = optionGroupBaseSchema.partial();
 const optionSchema = z.object({
   name: z.string().trim().min(1).max(100),
   priceCents: z.coerce.number().int().min(0).default(0),
@@ -213,13 +223,57 @@ export async function adminRoutes(app: FastifyInstance) {
     await audit(request, "CREATE", "OPTION_GROUP", group.id, input);
     return reply.code(201).send(group);
   });
-  app.patch("/admin/option-groups/:id", { preHandler: app.authenticateAdmin }, async (request) => {
-    const { id } = z.object({ id: z.string() }).parse(request.params);
-    const input = optionGroupSchema.partial().parse(request.body);
-    const group = await prisma.productOptionGroup.update({ where: { id }, data: input });
-    await audit(request, "UPDATE", "OPTION_GROUP", id, input);
+  app.patch(
+  "/admin/option-groups/:id",
+  { preHandler: app.authenticateAdmin },
+  async (request) => {
+    const { id } = z.object({
+      id: z.string(),
+    }).parse(request.params);
+
+    const changes = optionGroupUpdateSchema.parse(request.body);
+
+    const currentGroup = await prisma.productOptionGroup.findUnique({
+      where: { id },
+    });
+
+    if (!currentGroup) {
+      throw new HttpError(
+        404,
+        "Grupo de opções não encontrado",
+        "OPTION_GROUP_NOT_FOUND",
+      );
+    }
+
+    // Valida mínimo e máximo usando os valores atuais
+    // combinados com os campos que foram alterados.
+    optionGroupSchema.parse({
+      name: changes.name ?? currentGroup.name,
+      required: changes.required ?? currentGroup.required,
+      minSelection:
+        changes.minSelection ?? currentGroup.minSelection,
+      maxSelection:
+        changes.maxSelection ?? currentGroup.maxSelection,
+      position: changes.position ?? currentGroup.position,
+      active: changes.active ?? currentGroup.active,
+    });
+
+    const group = await prisma.productOptionGroup.update({
+      where: { id },
+      data: changes,
+    });
+
+    await audit(
+      request,
+      "UPDATE",
+      "OPTION_GROUP",
+      id,
+      changes,
+    );
+
     return group;
-  });
+  },
+);
   app.delete("/admin/option-groups/:id", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     await prisma.productOption.deleteMany({ where: { groupId: id } });
