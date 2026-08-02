@@ -36,18 +36,46 @@ export async function webhookRoutes(app: FastifyInstance) {
     if (existing) return reply.code(200).send({ received: true, duplicate: true });
 
     const payment = await getMercadoPagoPayment(dataId);
-    let localPayment = await prisma.payment.findUnique({ where: { providerPaymentId: String(payment.id) }, include: { order: true } });
-    if (!localPayment && payment.external_reference) {
-      const relatedOrder = await prisma.order.findUnique({
-        where: { publicId: payment.external_reference },
-        include: { payments: { orderBy: { createdAt: "desc" }, take: 1 } },
-      });
-      const candidate = relatedOrder?.payments[0];
-      if (candidate && relatedOrder) {
-        await prisma.payment.update({ where: { id: candidate.id }, data: { providerPaymentId: String(payment.id) } });
-        localPayment = { ...candidate, order: relatedOrder };
-      }
-    }
+    let localPayment = await prisma.payment.findFirst({
+  where: {
+    providerPaymentId: String(payment.id),
+  },
+  include: {
+    order: true,
+  },
+});
+
+if (!localPayment && payment.external_reference) {
+  const relatedOrder = await prisma.order.findUnique({
+    where: {
+      publicId: payment.external_reference,
+    },
+    include: {
+      payments: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+      },
+    },
+  });
+
+  const candidate = relatedOrder?.payments[0];
+
+  if (candidate) {
+    localPayment = await prisma.payment.update({
+      where: {
+        id: candidate.id,
+      },
+      data: {
+        providerPaymentId: String(payment.id),
+      },
+      include: {
+        order: true,
+      },
+    });
+  }
+}
     if (!localPayment) return reply.code(200).send({ received: true, unmatched: true });
 
     const status = mapPaymentStatus(payment.status);
