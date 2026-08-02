@@ -3,25 +3,42 @@ services:
     name: mesa4-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npm run prisma:generate && npm run build
+
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run prisma:push && npm run build && npm run seed
     startCommand: npm run start
+
     healthCheckPath: /health
+
     envVars:
       - key: NODE_VERSION
-        value: 22
+        value: "22"
+
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
+
       - key: DATABASE_URL
         sync: false
+
       - key: JWT_SECRET
         sync: false
+
       - key: FRONTEND_URLS
         sync: false
+
       - key: API_PUBLIC_URL
         sync: false
+
       - key: MERCADO_PAGO_ACCESS_TOKEN
         sync: false
+
       - key: MERCADO_PAGO_WEBHOOK_SECRET
+        sync: false
+
+      - key: ADMIN_NAME
+        sync: false
+
+      - key: ADMIN_EMAIL
+        sync: false
+
+      - key: ADMIN_PASSWORD
         sync: false
