@@ -19,7 +19,7 @@ export function MenuPage() {
   return <main>
     <header className="hero" style={settings?.heroImageUrl ? { backgroundImage: `linear-gradient(90deg, rgba(17,16,14,.96), rgba(17,16,14,.45)), url(${settings.heroImageUrl})` } : undefined}>
       <nav><div className="brand">{settings?.logoUrl ? <img src={settings.logoUrl} alt="" /> : <span>M4</span>}<strong>{settings?.storeName ?? "Mesa IV Burgers"}</strong></div><div className="nav-actions">{settings?.instagramUrl && <a className="icon-button" href={settings.instagramUrl} target="_blank" rel="noreferrer"><Instagram /></a>}<button className="cart-button" onClick={() => setOpen(true)}><ShoppingBag /><span>{totalQuantity || "Carrinho"}</span></button></div></nav>
-      <div className="hero-content"><span className={`store-status ${settings?.acceptingOrders ? "open" : "closed"}`}>{settings?.acceptingOrders ? "Aceitando pedidos" : "Fechado agora"}</span><h1>Fome de burger?<br /><em>Resolve aqui.</em></h1><p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
+      <div className="hero-content"><span className={`store-status ${settings?.acceptingOrders ? "open" : "closed"}`}>{settings?.acceptingOrders ? "Aceitando pedidos" : "Fechado agora"}</span><h1>Ainda tem<br /><em>LUGAR NA MESA.</em></h1><p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
     </header>
     <section className="menu-container">
       {menu.isLoading && <p>Carregando cardápio...</p>}
