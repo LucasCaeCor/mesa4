@@ -86,15 +86,12 @@ export async function createOrder(input: CreateOrderInput) {
     });
   }
 
-  let deliveryFeeCents = 0;
-  let deliveryZoneName: string | undefined;
-  if (input.fulfillment === "DELIVERY") {
-    const zone = await prisma.deliveryZone.findFirst({ where: { id: input.deliveryZoneId, active: true } });
-    if (!zone) throw new HttpError(422, "Região de entrega inválida", "INVALID_DELIVERY_ZONE");
-    if (subtotalCents < zone.minimumOrderCents) throw new HttpError(422, "Pedido abaixo do mínimo da região", "MINIMUM_ORDER");
-    deliveryFeeCents = zone.feeCents;
-    deliveryZoneName = zone.name;
-  }
+  const deliveryFeeCents = input.fulfillment === "DELIVERY"
+    ? (settings.deliveryFeeCents ?? 0)
+    : 0;
+  const deliveryZoneName = input.fulfillment === "DELIVERY"
+    ? "Taxa padrão"
+    : undefined;
 
   if (subtotalCents < settings.minimumOrderCents) throw new HttpError(422, "Pedido abaixo do valor mínimo da loja", "MINIMUM_ORDER");
 
@@ -112,13 +109,15 @@ export async function createOrder(input: CreateOrderInput) {
       customerEmail: input.customerEmail.toLowerCase(),
       customerDocument: input.customerDocument?.replace(/\D/g, ""),
       fulfillment: input.fulfillment,
-      deliveryZoneId: input.deliveryZoneId,
+      deliveryZoneId: undefined,
       deliveryZoneName,
+      postalCode: input.address?.postalCode,
       street: input.address?.street,
       number: input.address?.number,
       complement: input.address?.complement,
       neighborhood: input.address?.neighborhood,
       city: input.address?.city,
+      state: input.address?.state.toUpperCase(),
       reference: input.address?.reference,
       notes: input.notes,
       subtotalCents,

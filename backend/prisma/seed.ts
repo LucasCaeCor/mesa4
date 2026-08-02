@@ -26,6 +26,7 @@ async function main() {
       whatsappNumber: "5500000000000",
       instagramUrl: "https://www.instagram.com/mesaivburgers/",
       minimumOrderCents: 0,
+      deliveryFeeCents: 0,
       defaultPrepMinutes: 40,
     },
   });

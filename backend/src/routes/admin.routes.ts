@@ -66,6 +66,7 @@ const settingsSchema = z.object({
   heroImageUrl: z.string().url().optional().or(z.literal("")),
   pickupAddress: z.string().trim().max(200).optional(),
   minimumOrderCents: z.coerce.number().int().min(0),
+  deliveryFeeCents: z.coerce.number().int().min(0),
   defaultPrepMinutes: z.coerce.number().int().min(1).max(300),
   acceptingOrders: z.boolean(),
   pixEnabled: z.boolean(),
@@ -137,7 +138,7 @@ export async function adminRoutes(app: FastifyInstance) {
     return order;
   });
 
-  app.get("/admin/categories", { preHandler: app.authenticateAdmin }, async () => prisma.category.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }] }));
+  app.get("/admin/categories", { preHandler: app.authenticateAdmin }, async () => prisma.category.findMany({ orderBy: [{ position: "asc" }, { createdAt: "desc" }] }));
   app.post("/admin/categories", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const input = categorySchema.parse(request.body);
     const category = await prisma.category.create({ data: { ...input, slug: slugify(input.slug || input.name) } });
@@ -159,7 +160,7 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
-  app.get("/admin/products", { preHandler: app.authenticateAdmin }, async () => prisma.product.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], include: { category: true, optionGroups: { include: { options: true } } } }));
+  app.get("/admin/products", { preHandler: app.authenticateAdmin }, async () => prisma.product.findMany({ orderBy: [{ position: "asc" }, { createdAt: "desc" }], include: { category: true, optionGroups: { include: { options: true } } } }));
   app.post("/admin/products", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const input = productSchema.parse(request.body);
     const product = await prisma.product.create({ data: { ...input, imageUrl: input.imageUrl || undefined, slug: slugify(input.slug || input.name) } });
@@ -169,7 +170,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.patch("/admin/products/:id", { preHandler: app.authenticateAdmin }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const input = productSchema.partial().parse(request.body);
-    const product = await prisma.product.update({ where: { id }, data: { ...input, imageUrl: input.imageUrl || undefined, ...(input.slug || input.name ? { slug: slugify(input.slug || input.name || "") } : {}) } });
+    const product = await prisma.product.update({ where: { id }, data: { ...input, ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl || null } : {}), ...(input.slug || input.name ? { slug: slugify(input.slug || input.name || "") } : {}) } });
     await audit(request, "UPDATE", "PRODUCT", id, input);
     return product;
   });

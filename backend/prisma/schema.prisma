@@ -144,6 +144,7 @@ model StoreSettings {
   heroImageUrl         String?
   pickupAddress        String?
   minimumOrderCents    Int      @default(0)
+  deliveryFeeCents     Int?     @default(0)
   defaultPrepMinutes   Int      @default(40)
   acceptingOrders      Boolean  @default(true)
   pixEnabled           Boolean  @default(true)
@@ -163,11 +164,13 @@ model Order {
   fulfillment           FulfillmentType
   deliveryZoneId        String?         @db.ObjectId
   deliveryZoneName      String?
+  postalCode             String?
   street                String?
   number                String?
   complement            String?
   neighborhood          String?
   city                   String?
+  state                  String?
   reference             String?
   notes                 String?
   subtotalCents         Int
