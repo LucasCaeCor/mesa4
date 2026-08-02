@@ -77,6 +77,11 @@ const settingsSchema = z.object({
   pickupAddress: z.string().trim().max(200).optional(),
   minimumOrderCents: z.coerce.number().int().min(0),
   deliveryFeeCents: z.coerce.number().int().min(0),
+  dynamicDeliveryEnabled: z.boolean().default(false),
+  deliveryBaseFeeCents: z.coerce.number().int().min(0).default(0),
+  deliveryIncludedKm: z.coerce.number().min(0).max(100).default(0),
+  deliveryPricePerKmCents: z.coerce.number().int().min(0).default(0),
+  deliveryMaxDistanceKm: z.coerce.number().positive().max(100).default(15),
   defaultPrepMinutes: z.coerce.number().int().min(1).max(300),
   acceptingOrders: z.boolean(),
   pixEnabled: z.boolean(),
@@ -315,6 +320,15 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get("/admin/settings", { preHandler: app.authenticateAdmin }, async () => prisma.storeSettings.findUnique({ where: { singletonKey: "default" } }));
   app.put("/admin/settings", { preHandler: app.authenticateAdmin }, async (request) => {
     const input = settingsSchema.parse(request.body);
+
+    if (input.dynamicDeliveryEnabled && !input.pickupAddress?.trim()) {
+      throw new HttpError(
+        422,
+        "Informe o endereço completo da loja para calcular entregas por distância",
+        "STORE_ADDRESS_REQUIRED",
+      );
+    }
+
     const settings = await prisma.storeSettings.upsert({
       where: { singletonKey: "default" },
       update: { ...input, instagramUrl: input.instagramUrl || undefined, logoUrl: input.logoUrl || undefined, heroImageUrl: input.heroImageUrl || undefined },

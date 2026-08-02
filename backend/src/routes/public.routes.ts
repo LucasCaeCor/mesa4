@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { createOrderSchema } from "../modules/orders/order.schemas.js";
+import { addressSchema, createOrderSchema } from "../modules/orders/order.schemas.js";
 import { createOrder, getOrderForCustomer } from "../modules/orders/order.service.js";
 import { buildWhatsAppMessage } from "../lib/whatsapp.js";
 import { lookupAddressByCep } from "../modules/address/cep.service.js";
+import { calculateDeliveryQuote } from "../modules/delivery/openroute.service.js";
 
 export async function publicRoutes(app: FastifyInstance) {
   app.get("/store", async () => {
@@ -43,6 +44,23 @@ export async function publicRoutes(app: FastifyInstance) {
     async (request) => {
       const { cep } = z.object({ cep: z.string() }).parse(request.params);
       return lookupAddressByCep(cep);
+    },
+  );
+
+  app.post(
+    "/delivery/quote",
+    { config: { rateLimit: { max: 30, timeWindow: "10 minutes" } } },
+    async (request) => {
+      const address = addressSchema.parse(request.body);
+      const settings = await prisma.storeSettings.findUnique({
+        where: { singletonKey: "default" },
+      });
+
+      if (!settings) {
+        throw new Error("Store settings not found");
+      }
+
+      return calculateDeliveryQuote(settings, address);
     },
   );
 

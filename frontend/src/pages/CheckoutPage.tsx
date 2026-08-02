@@ -22,6 +22,16 @@ type CepResult = {
   state: string;
 };
 
+type DeliveryQuoteResult = {
+  mode: "FLAT" | "DISTANCE";
+  deliveryFeeCents: number;
+  distanceMeters?: number;
+  distanceKm?: number;
+  durationSeconds?: number;
+  durationMinutes?: number;
+  maxDistanceKm?: number;
+};
+
 export function CheckoutPage() {
   const navigate = useNavigate();
   const numberInput = useRef<HTMLInputElement>(null);
@@ -36,6 +46,7 @@ export function CheckoutPage() {
   );
   const [postalCode, setPostalCode] = useState("");
   const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("");
   const [stateCode, setStateCode] = useState("");
@@ -56,14 +67,38 @@ export function CheckoutPage() {
     [items],
   );
 
-  const deliveryFee = store.data?.settings.deliveryFeeCents ?? 0;
-  const total =
-    subtotal + (fulfillment === "DELIVERY" ? deliveryFee : 0);
+  const dynamicDeliveryEnabled =
+    store.data?.settings.dynamicDeliveryEnabled ?? false;
+
+  const deliveryQuote = useMutation({
+    mutationFn: () =>
+      api<DeliveryQuoteResult>("/delivery/quote", {
+        method: "POST",
+        body: JSON.stringify({
+          postalCode: postalCode.replace(/\D/g, ""),
+          street,
+          number,
+          neighborhood,
+          city,
+          state: stateCode,
+        }),
+      }),
+  });
+
+  const deliveryFee =
+    fulfillment === "DELIVERY"
+      ? dynamicDeliveryEnabled
+        ? deliveryQuote.data?.deliveryFeeCents ?? 0
+        : store.data?.settings.deliveryFeeCents ?? 0
+      : 0;
+
+  const total = subtotal + deliveryFee;
 
   const cepLookup = useMutation({
     mutationFn: (cep: string) =>
       api<CepResult>(`/address/cep/${cep.replace(/\D/g, "")}`),
     onSuccess(data) {
+      deliveryQuote.reset();
       setPostalCode(data.formattedPostalCode);
       setStreet(data.street);
       setNeighborhood(data.neighborhood);
@@ -87,9 +122,23 @@ export function CheckoutPage() {
     },
   });
 
+  const canCalculateDelivery =
+    postalCode.replace(/\D/g, "").length === 8 &&
+    street.trim().length >= 2 &&
+    number.trim().length >= 1 &&
+    neighborhood.trim().length >= 2 &&
+    city.trim().length >= 2 &&
+    stateCode.trim().length === 2;
+
   function searchPostalCode() {
     const digits = postalCode.replace(/\D/g, "");
     if (digits.length === 8) cepLookup.mutate(digits);
+  }
+
+  function calculateDelivery() {
+    if (canCalculateDelivery) {
+      deliveryQuote.mutate();
+    }
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -107,7 +156,7 @@ export function CheckoutPage() {
           ? {
               postalCode: postalCode.replace(/\D/g, ""),
               street,
-              number: form.get("number"),
+              number,
               complement: form.get("complement") || undefined,
               neighborhood,
               city,
@@ -200,7 +249,10 @@ export function CheckoutPage() {
                   <input
                     name="postalCode"
                     value={postalCode}
-                    onChange={(event) => setPostalCode(event.target.value)}
+                    onChange={(event) => {
+                      deliveryQuote.reset();
+                      setPostalCode(event.target.value);
+                    }}
                     onBlur={searchPostalCode}
                     inputMode="numeric"
                     maxLength={9}
@@ -218,6 +270,7 @@ export function CheckoutPage() {
                   {cepLookup.isPending ? "Buscando..." : "Buscar CEP"}
                 </button>
               </div>
+
               {cepLookup.error && (
                 <p className="error-text">{cepLookup.error.message}</p>
               )}
@@ -228,13 +281,30 @@ export function CheckoutPage() {
                   <input
                     name="street"
                     value={street}
-                    onChange={(event) => setStreet(event.target.value)}
+                    onChange={(event) => {
+                      deliveryQuote.reset();
+                      setStreet(event.target.value);
+                    }}
                     required
                   />
                 </label>
                 <label className="field">
                   <span>Número</span>
-                  <input ref={numberInput} name="number" required />
+                  <input
+                    ref={numberInput}
+                    name="number"
+                    value={number}
+                    onChange={(event) => {
+                      deliveryQuote.reset();
+                      setNumber(event.target.value);
+                    }}
+                    onBlur={() => {
+                      if (dynamicDeliveryEnabled && canCalculateDelivery) {
+                        calculateDelivery();
+                      }
+                    }}
+                    required
+                  />
                 </label>
                 <label className="field">
                   <span>Complemento</span>
@@ -245,7 +315,10 @@ export function CheckoutPage() {
                   <input
                     name="neighborhood"
                     value={neighborhood}
-                    onChange={(event) => setNeighborhood(event.target.value)}
+                    onChange={(event) => {
+                      deliveryQuote.reset();
+                      setNeighborhood(event.target.value);
+                    }}
                     required
                   />
                 </label>
@@ -254,7 +327,10 @@ export function CheckoutPage() {
                   <input
                     name="city"
                     value={city}
-                    onChange={(event) => setCity(event.target.value)}
+                    onChange={(event) => {
+                      deliveryQuote.reset();
+                      setCity(event.target.value);
+                    }}
                     required
                   />
                 </label>
@@ -263,9 +339,12 @@ export function CheckoutPage() {
                   <input
                     name="state"
                     value={stateCode}
-                    onChange={(event) =>
-                      setStateCode(event.target.value.toUpperCase().slice(0, 2))
-                    }
+                    onChange={(event) => {
+                      deliveryQuote.reset();
+                      setStateCode(
+                        event.target.value.toUpperCase().slice(0, 2),
+                      );
+                    }}
                     maxLength={2}
                     required
                   />
@@ -275,6 +354,41 @@ export function CheckoutPage() {
                   <input name="reference" />
                 </label>
               </div>
+
+              {dynamicDeliveryEnabled && (
+                <div className="delivery-quote-box">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={calculateDelivery}
+                    disabled={!canCalculateDelivery || deliveryQuote.isPending}
+                  >
+                    {deliveryQuote.isPending
+                      ? "Calculando entrega..."
+                      : "Calcular valor da entrega"}
+                  </button>
+
+                  {deliveryQuote.data?.mode === "DISTANCE" && (
+                    <div className="delivery-quote-result">
+                      <strong>
+                        Entrega: {formatMoney(deliveryQuote.data.deliveryFeeCents)}
+                      </strong>
+                      <span>
+                        {deliveryQuote.data.distanceKm?.toFixed(1)} km
+                        {deliveryQuote.data.durationMinutes
+                          ? ` · cerca de ${deliveryQuote.data.durationMinutes} min de trajeto`
+                          : ""}
+                      </span>
+                    </div>
+                  )}
+
+                  {deliveryQuote.error && (
+                    <p className="error-text">
+                      {deliveryQuote.error.message}
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -317,7 +431,9 @@ export function CheckoutPage() {
             <b>
               {fulfillment === "PICKUP"
                 ? "Grátis"
-                : formatMoney(deliveryFee)}
+                : dynamicDeliveryEnabled && !deliveryQuote.data
+                  ? "Calcule o endereço"
+                  : formatMoney(deliveryFee)}
             </b>
           </div>
           <div className="summary-total">
@@ -332,11 +448,21 @@ export function CheckoutPage() {
           )}
           <button
             className="primary"
-            disabled={mutation.isPending || store.isLoading}
+            disabled={
+              mutation.isPending ||
+              store.isLoading ||
+              (fulfillment === "DELIVERY" &&
+                dynamicDeliveryEnabled &&
+                !deliveryQuote.data)
+            }
           >
             {mutation.isPending
               ? "Gerando PIX..."
-              : `Gerar PIX · ${formatMoney(total)}`}
+              : fulfillment === "DELIVERY" &&
+                  dynamicDeliveryEnabled &&
+                  !deliveryQuote.data
+                ? "Calcule a entrega para continuar"
+                : `Gerar PIX · ${formatMoney(total)}`}
           </button>
         </aside>
       </form>

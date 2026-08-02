@@ -66,6 +66,11 @@ export function AdminSettingsPage() {
       pickupAddress: form.get("pickupAddress") || undefined,
       minimumOrderCents: Math.round(Number(form.get("minimumOrder")) * 100),
       deliveryFeeCents: Math.round(Number(form.get("deliveryFee")) * 100),
+      dynamicDeliveryEnabled: form.get("dynamicDeliveryEnabled") === "on",
+      deliveryBaseFeeCents: Math.round(Number(form.get("deliveryBaseFee")) * 100),
+      deliveryIncludedKm: Number(form.get("deliveryIncludedKm")),
+      deliveryPricePerKmCents: Math.round(Number(form.get("deliveryPricePerKm")) * 100),
+      deliveryMaxDistanceKm: Number(form.get("deliveryMaxDistanceKm")),
       defaultPrepMinutes: Number(form.get("prepMinutes")),
       acceptingOrders: form.get("acceptingOrders") === "on",
       pixEnabled: form.get("pixEnabled") === "on",
@@ -132,7 +137,7 @@ export function AdminSettingsPage() {
               />
             </label>
             <label className="field">
-              <span>Taxa padrão de entrega em R$</span>
+              <span>Taxa fixa em R$</span>
               <input
                 name="deliveryFee"
                 type="number"
@@ -142,8 +147,56 @@ export function AdminSettingsPage() {
                 required
               />
               <small className="field-help">
-                Essa taxa será aplicada a todos os pedidos de entrega.
+                Usada quando o cálculo por distância estiver desligado.
               </small>
+            </label>
+
+            <label className="field">
+              <span>Taxa base dinâmica em R$</span>
+              <input
+                name="deliveryBaseFee"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={(s.deliveryBaseFeeCents ?? 0) / 100}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>Quilômetros incluídos</span>
+              <input
+                name="deliveryIncludedKm"
+                type="number"
+                min="0"
+                step="0.1"
+                defaultValue={s.deliveryIncludedKm ?? 0}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>Valor por km adicional em R$</span>
+              <input
+                name="deliveryPricePerKm"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={(s.deliveryPricePerKmCents ?? 0) / 100}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>Distância máxima em km</span>
+              <input
+                name="deliveryMaxDistanceKm"
+                type="number"
+                min="0.1"
+                step="0.1"
+                defaultValue={s.deliveryMaxDistanceKm ?? 15}
+                required
+              />
             </label>
             <label className="field">
               <span>Preparo em minutos</span>
@@ -175,6 +228,14 @@ export function AdminSettingsPage() {
             </label>
           </div>
           <div className="check-row">
+            <label>
+              <input
+                name="dynamicDeliveryEnabled"
+                type="checkbox"
+                defaultChecked={s.dynamicDeliveryEnabled ?? false}
+              />{" "}
+              Calcular entrega por distância
+            </label>
             <label>
               <input
                 name="acceptingOrders"

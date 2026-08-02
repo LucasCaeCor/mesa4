@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError } from "../../lib/http-error.js";
 import { createPublicOrderId, createTrackingToken, hashTrackingToken } from "../../lib/tracking.js";
 import { createPixPayment } from "../payments/mercado-pago.service.js";
+import { calculateDeliveryQuote } from "../delivery/openroute.service.js";
 import type { z } from "zod";
 import type { createOrderSchema } from "./order.schemas.js";
 
@@ -86,12 +87,18 @@ export async function createOrder(input: CreateOrderInput) {
     });
   }
 
-  const deliveryFeeCents = input.fulfillment === "DELIVERY"
-    ? (settings.deliveryFeeCents ?? 0)
-    : 0;
-  const deliveryZoneName = input.fulfillment === "DELIVERY"
-    ? "Taxa padrão"
-    : undefined;
+  const deliveryQuote =
+    input.fulfillment === "DELIVERY"
+      ? await calculateDeliveryQuote(settings, input.address!)
+      : undefined;
+
+  const deliveryFeeCents = deliveryQuote?.deliveryFeeCents ?? 0;
+  const deliveryZoneName =
+    deliveryQuote?.mode === "DISTANCE" && deliveryQuote.distanceKm !== undefined
+      ? `Entrega por distância · ${deliveryQuote.distanceKm.toFixed(1)} km`
+      : input.fulfillment === "DELIVERY"
+        ? "Taxa padrão"
+        : undefined;
 
   if (subtotalCents < settings.minimumOrderCents) throw new HttpError(422, "Pedido abaixo do valor mínimo da loja", "MINIMUM_ORDER");
 
@@ -122,6 +129,8 @@ export async function createOrder(input: CreateOrderInput) {
       notes: input.notes,
       subtotalCents,
       deliveryFeeCents,
+      deliveryDistanceMeters: deliveryQuote?.distanceMeters,
+      deliveryDurationSeconds: deliveryQuote?.durationSeconds,
       totalCents,
       items: { create: itemCreates },
       statusHistory: { create: { status: "PENDING_PAYMENT", note: "Pedido criado" } },

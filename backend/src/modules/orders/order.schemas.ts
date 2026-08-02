@@ -12,7 +12,7 @@ const itemSchema = z.object({
   options: z.array(optionSchema).max(20).default([]),
 });
 
-const addressSchema = z.object({
+export const addressSchema = z.object({
   postalCode: z.string().trim().regex(/^\d{8}$/, "CEP inválido"),
   street: z.string().trim().min(2).max(120),
   number: z.string().trim().min(1).max(20),

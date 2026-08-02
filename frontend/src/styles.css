@@ -140,3 +140,49 @@
     justify-content:space-between;
   }
 }
+
+.delivery-quote-box {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.delivery-quote-box .secondary {
+  width: 100%;
+  justify-content: center;
+}
+
+.delivery-quote-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 132, 0, 0.12);
+}
+
+.delivery-quote-result strong {
+  color: var(--orange);
+}
+
+.delivery-quote-result span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .delivery-quote-result {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .delivery-quote-result span {
+    text-align: left;
+  }
+}

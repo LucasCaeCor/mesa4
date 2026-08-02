@@ -10,6 +10,7 @@ const schema = z.object({
   API_PUBLIC_URL: z.string().url(),
   MERCADO_PAGO_ACCESS_TOKEN: z.string().min(1),
   MERCADO_PAGO_WEBHOOK_SECRET: z.string().optional().default(""),
+  OPENROUTESERVICE_API_KEY: z.string().optional().default(""),
 });
 
 const parsed = schema.safeParse(process.env);

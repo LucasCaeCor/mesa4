@@ -143,9 +143,14 @@ model StoreSettings {
   logoUrl              String?
   heroImageUrl         String?
   pickupAddress        String?
-  minimumOrderCents    Int      @default(0)
-  deliveryFeeCents     Int?     @default(0)
-  defaultPrepMinutes   Int      @default(40)
+  minimumOrderCents         Int      @default(0)
+  deliveryFeeCents          Int?     @default(0)
+  dynamicDeliveryEnabled    Boolean? @default(false)
+  deliveryBaseFeeCents      Int?     @default(0)
+  deliveryIncludedKm        Float?   @default(0)
+  deliveryPricePerKmCents   Int?     @default(0)
+  deliveryMaxDistanceKm     Float?   @default(15)
+  defaultPrepMinutes        Int      @default(40)
   acceptingOrders      Boolean  @default(true)
   pixEnabled           Boolean  @default(true)
   whatsappConfirmation Boolean  @default(true)
@@ -175,6 +180,8 @@ model Order {
   notes                 String?
   subtotalCents         Int
   deliveryFeeCents      Int
+  deliveryDistanceMeters Int?
+  deliveryDurationSeconds Int?
   discountCents         Int             @default(0)
   totalCents            Int
   status                 OrderStatus     @default(PENDING_PAYMENT)
