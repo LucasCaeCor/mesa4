@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  ADMIN
+}
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  IN_PROCESS
+  REJECTED
+  CANCELED
+  REFUNDED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  PIX
+}
+
+model AdminUser {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         AdminRole  @default(ADMIN)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model Category {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  slug      String    @unique
+  position  Int       @default(0)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id          String               @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId  String               @db.ObjectId
+  category    Category             @relation(fields: [categoryId], references: [id])
+  name        String
+  slug        String               @unique
+  description String?
+  priceCents  Int
+  imageUrl    String?
+  featured    Boolean              @default(false)
+  active      Boolean              @default(true)
+  soldOut     Boolean              @default(false)
+  position    Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  optionGroups ProductOptionGroup[]
+
+  @@index([categoryId, active])
+}
+
+model ProductOptionGroup {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  productId    String          @db.ObjectId
+  product      Product         @relation(fields: [productId], references: [id])
+  name         String
+  required     Boolean         @default(false)
+  minSelection Int             @default(0)
+  maxSelection Int             @default(1)
+  position     Int             @default(0)
+  active       Boolean         @default(true)
+  options      ProductOption[]
+
+  @@index([productId])
+}
+
+model ProductOption {
+  id        String             @id @default(auto()) @map("_id") @db.ObjectId
+  groupId   String             @db.ObjectId
+  group     ProductOptionGroup @relation(fields: [groupId], references: [id])
+  name      String
+  priceCents Int               @default(0)
+  position  Int                @default(0)
+  active    Boolean            @default(true)
+
+  @@index([groupId])
+}
+
+model DeliveryZone {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  name             String   @unique
+  feeCents         Int
+  minimumOrderCents Int     @default(0)
+  estimatedMinutes Int?
+  active           Boolean  @default(true)
+  position         Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model BusinessHour {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  weekday   Int      @unique
+  enabled   Boolean  @default(true)
+  opensAt   String
+  closesAt  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoreSettings {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  singletonKey         String   @unique @default("default")
+  storeName            String   @default("Mesa IV Burgers")
+  description          String?
+  whatsappNumber       String
+  instagramUrl         String?
+  logoUrl              String?
+  heroImageUrl         String?
+  pickupAddress        String?
+  minimumOrderCents    Int      @default(0)
+  defaultPrepMinutes   Int      @default(40)
+  acceptingOrders      Boolean  @default(true)
+  pixEnabled           Boolean  @default(true)
+  whatsappConfirmation Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Order {
+  id                    String          @id @default(auto()) @map("_id") @db.ObjectId
+  publicId              String          @unique
+  trackingTokenHash     String
+  customerName          String
+  customerPhone         String
+  customerEmail         String
+  customerDocument      String?
+  fulfillment           FulfillmentType
+  deliveryZoneId        String?         @db.ObjectId
+  deliveryZoneName      String?
+  street                String?
+  number                String?
+  complement            String?
+  neighborhood          String?
+  city                   String?
+  reference             String?
+  notes                 String?
+  subtotalCents         Int
+  deliveryFeeCents      Int
+  discountCents         Int             @default(0)
+  totalCents            Int
+  status                 OrderStatus     @default(PENDING_PAYMENT)
+  whatsappConfirmedAt   DateTime?
+  paidAt                 DateTime?
+  canceledAt             DateTime?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  items                  OrderItem[]
+  payments               Payment[]
+  statusHistory          OrderStatusHistory[]
+
+  @@index([status, createdAt])
+  @@index([customerPhone])
+}
+
+model OrderItem {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  orderId        String            @db.ObjectId
+  order          Order             @relation(fields: [orderId], references: [id])
+  productId      String            @db.ObjectId
+  productName    String
+  unitPriceCents Int
+  quantity       Int
+  notes          String?
+  lineTotalCents Int
+  options        OrderItemOption[]
+
+  @@index([orderId])
+}
+
+model OrderItemOption {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  orderItemId      String    @db.ObjectId
+  orderItem        OrderItem @relation(fields: [orderItemId], references: [id])
+  optionId         String    @db.ObjectId
+  groupName        String
+  optionName       String
+  unitPriceCents   Int
+  quantity         Int       @default(1)
+
+  @@index([orderItemId])
+}
+
+model Payment {
+  id                   String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderId              String        @db.ObjectId
+  order                Order         @relation(fields: [orderId], references: [id])
+  provider              String        @default("MERCADO_PAGO")
+  method                PaymentMethod @default(PIX)
+  providerPaymentId     String?
+  idempotencyKey        String        @unique
+  status                PaymentStatus @default(PENDING)
+  statusDetail          String?
+  amountCents           Int
+  qrCode                String?
+  qrCodeBase64          String?
+  ticketUrl             String?
+  expiresAt             DateTime?
+  rawResponse           Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([providerPaymentId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String      @db.ObjectId
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model WebhookEvent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventKey    String   @unique
+  provider    String
+  eventType   String?
+  resourceId  String?
+  payload     Json
+  processedAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  adminId    String?    @db.ObjectId
+  admin      AdminUser? @relation(fields: [adminId], references: [id])
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime   @default(now())
+
+  @@index([createdAt])
+}
