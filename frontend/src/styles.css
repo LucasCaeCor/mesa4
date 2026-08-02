@@ -6,3 +6,137 @@
 /* Melhorias de administração e checkout */
 .field-help{color:var(--muted);font-size:12px;line-height:1.4}.cep-search-row{display:flex;align-items:flex-end;gap:12px;margin-bottom:15px}.cep-search-row .secondary{min-height:47px;white-space:nowrap}.cep-search-row .secondary svg,.admin-product-actions .secondary svg{width:16px}.admin-check{display:flex;align-items:center;gap:8px;color:#d9d1c6;font-size:14px;margin:12px 0}.admin-check input{accent-color:var(--orange);width:17px;height:17px}.admin-edit-modal{width:min(680px,100%)}.admin-edit-form>.field,.admin-edit-form>.field-grid{margin-top:15px}.admin-edit-form>small{color:var(--muted)}.edit-check-grid{display:flex;gap:20px;flex-wrap:wrap;margin:12px 0 20px}.admin-edit-form>.primary{width:100%}
 @media(max-width:800px){.cep-search-row{align-items:stretch;flex-direction:column}.cep-search-row .secondary{width:100%}.edit-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.admin-edit-modal{min-height:100vh}}
+
+
+
+/* Ajuste visual dos grupos de adicionais no painel administrativo */
+.admin-option-group{
+  margin-top:18px;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:#161411;
+}
+
+.admin-option-group>div:first-child{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;
+  gap:16px;
+}
+
+.admin-option-group>div:first-child>div:first-child{
+  min-width:0;
+}
+
+.admin-option-group strong{
+  display:block;
+  font:600 19px Oswald;
+  text-transform:uppercase;
+  letter-spacing:.2px;
+}
+
+.admin-option-group small{
+  display:block;
+  margin-top:5px;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.45;
+}
+
+.admin-option-group>div:first-child .admin-product-actions{
+  margin-top:0;
+  justify-content:flex-end;
+  align-items:center;
+}
+
+/* Sobrescreve a regra antiga que deixava todos os botões transparentes */
+.admin-option-group .admin-product-actions .secondary{
+  min-height:38px;
+  padding:9px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface-2);
+  color:#fff;
+}
+
+.admin-option-group .admin-product-actions .secondary:hover{
+  border-color:var(--orange);
+  background:#2d2924;
+}
+
+.admin-option-group .admin-product-actions .icon-button{
+  width:38px;
+  height:38px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface-2);
+  color:#ff7d7d;
+}
+
+.admin-option-group .admin-product-actions .icon-button:hover{
+  border-color:#ff7d7d;
+  background:rgba(255,125,125,.08);
+}
+
+.admin-option-group>span{
+  max-width:100%;
+  min-height:36px;
+  padding:8px 9px 8px 11px;
+  margin:10px 7px 0 0;
+  border:1px solid #3a342d;
+  border-radius:10px;
+  background:#27231e;
+  color:#eee7dd;
+  line-height:1.3;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+.admin-option-group>span button{
+  flex:0 0 auto;
+  width:24px;
+  height:24px;
+  margin-left:2px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:7px;
+  background:rgba(255,125,125,.1);
+  color:#ff8f8f;
+  font-size:17px;
+  line-height:1;
+}
+
+.admin-option-group>span button:hover{
+  background:rgba(255,125,125,.2);
+  color:#fff;
+}
+
+@media(max-width:800px){
+  .admin-option-group{
+    padding:14px;
+  }
+
+  .admin-option-group>div:first-child{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .admin-option-group>div:first-child .admin-product-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  .admin-option-group .admin-product-actions .secondary{
+    flex:1 1 145px;
+  }
+
+  .admin-option-group>span{
+    display:flex;
+    width:100%;
+    margin-right:0;
+    justify-content:space-between;
+  }
+}
