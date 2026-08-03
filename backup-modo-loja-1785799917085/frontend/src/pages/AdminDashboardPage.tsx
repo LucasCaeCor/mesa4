@@ -25,10 +25,6 @@ import { AdminNav } from "../components/AdminNav";
 import { adminApi } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import type { OrderStatus } from "../types";
-import {
-  useNewOrderAlerts,
-  useStoreOpenMode,
-} from "../hooks/useStoreOpenMode";
 
 type AdminPayment = {
   id: string;
@@ -260,8 +256,6 @@ function paymentProviderLabel(provider?: string) {
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  /* MESA4_STORE_OPEN_MODE */
-  const storeMode = useStoreOpenMode();
   const [selectedOrderId, setSelectedOrderId] =
     useState<string | null>(null);
   const [whatsappPrompt, setWhatsappPrompt] =
@@ -272,16 +266,9 @@ export function AdminDashboardPage() {
     queryFn: () =>
       adminApi<AdminOrder[]>("/admin/orders"),
     refetchInterval: 10000,
-    refetchIntervalInBackground:
-      storeMode.enabled,
     retry: false,
   });
 
-  
-  const newOrderAlert = useNewOrderAlerts(
-    orders.data,
-    storeMode,
-  );
   const dashboard = useQuery({
     queryKey: ["admin-dashboard"],
     queryFn: () =>
@@ -440,48 +427,7 @@ export function AdminDashboardPage() {
         </div>
 
         <div>
-                    <div className="store-mode-controls">
-            <button
-              className={`store-mode-button ${
-                storeMode.enabled ? "active" : ""
-              }`}
-              type="button"
-              onClick={() => {
-                if (storeMode.enabled) {
-                  storeMode.deactivate();
-                } else {
-                  void storeMode.activate();
-                }
-              }}
-            >
-              <span className="store-mode-dot" />
-              {storeMode.enabled
-                ? "Loja aberta"
-                : "Ativar modo loja"}
-            </button>
-
-            {storeMode.enabled && (
-              <button
-                className="store-sound-test"
-                type="button"
-                onClick={() =>
-                  void storeMode.testSound()
-                }
-              >
-                🔊 Testar som
-              </button>
-            )}
-
-            {storeMode.enabled &&
-              !storeMode.audioReady && (
-                <small className="store-audio-warning">
-                  Clique em “Testar som” para liberar
-                  o áudio nesta sessão.
-                </small>
-              )}
-          </div>
-
-<button
+          <button
             className="secondary"
             type="button"
             onClick={() =>
@@ -493,60 +439,6 @@ export function AdminDashboardPage() {
           </button>
         </div>
       </header>
-
-      {newOrderAlert.latestOrder && (
-        <section
-          className="new-order-alert"
-          role="alert"
-          aria-live="assertive"
-        >
-          <span className="new-order-alert-icon">
-            🔔
-          </span>
-
-          <div className="new-order-alert-copy">
-            <strong>
-              {newOrderAlert.newOrderCount > 1
-                ? `${newOrderAlert.newOrderCount} novos pedidos`
-                : "Novo pedido"}
-            </strong>
-            <span>
-              {newOrderAlert.latestOrder.publicId} ·{" "}
-              {newOrderAlert.latestOrder.customerName}
-            </span>
-            <small>
-              {formatMoney(
-                newOrderAlert.latestOrder.totalCents,
-              )}
-            </small>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              const orderId =
-                newOrderAlert.latestOrder?.id;
-
-              if (!orderId) {
-                return;
-              }
-
-              newOrderAlert.acknowledge(orderId);
-
-              document
-                .getElementById(
-                  `admin-order-${orderId}`,
-                )
-                ?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "center",
-                });
-            }}
-          >
-            Ver pedido
-          </button>
-        </section>
-      )}
 
       <section className="stats">
         <article>
@@ -589,17 +481,7 @@ export function AdminDashboardPage() {
 
           return (
             <article
-              id={`admin-order-${order.id}`}
-              className={`admin-order ${
-                newOrderAlert.highlightedOrderIds.has(
-                  order.id,
-                )
-                  ? "new-order-highlight"
-                  : ""
-              }`}
-              onClick={() =>
-                newOrderAlert.acknowledge(order.id)
-              }
+              className="admin-order"
               key={order.id}
             >
               <div className="admin-order-head">
