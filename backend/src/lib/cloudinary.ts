@@ -53,15 +53,24 @@ export async function uploadProductImage(
       },
       (error, result) => {
         if (error || !result) {
-          reject(
-            new HttpError(
-              502,
-              "Não foi possível enviar a imagem ao Cloudinary",
-              "CLOUDINARY_UPLOAD_FAILED",
-            ),
-          );
-          return;
-        }
+  console.error(
+    "[Cloudinary upload error]",
+    error ?? {
+      message:
+        "O Cloudinary não retornou resultado nem erro",
+    },
+  );
+
+  reject(
+    new HttpError(
+      502,
+      "Não foi possível enviar a imagem ao Cloudinary",
+      "CLOUDINARY_UPLOAD_FAILED",
+    ),
+  );
+
+  return;
+}
 
         resolve({
           imageUrl: result.secure_url,
