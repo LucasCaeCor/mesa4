@@ -1,5 +1,4 @@
 import Fastify from "fastify";
-import multipart from "@fastify/multipart";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { registerSecurity } from "./plugins/security.js";
@@ -16,16 +15,10 @@ export async function buildApp() {
       redact: ["req.headers.authorization", "body.password", "body.customerDocument"],
     },
     trustProxy: true,
-    bodyLimit: 6 * 1024 * 1024,
+    bodyLimit: 1024 * 1024,
   });
 
   await registerSecurity(app);
-  await app.register(multipart, {
-    limits: {
-      files: 1,
-      fileSize: 5 * 1024 * 1024,
-    },
-  });
   await registerAuth(app);
 
   app.get("/health", async () => ({ ok: true, timestamp: new Date().toISOString() }));

@@ -16,9 +16,6 @@ const schema = z.object({
   WHATSAPP_TEMPLATE_LANGUAGE: z.string().trim().min(2).default("pt_BR"),
   WHATSAPP_GRAPH_API_VERSION: z.string().regex(/^v\d+\.\d+$/).default("v25.0"),
   OPENROUTESERVICE_API_KEY: z.string().optional().default(""),
-  CLOUDINARY_CLOUD_NAME: z.string().optional().default(""),
-  CLOUDINARY_API_KEY: z.string().optional().default(""),
-  CLOUDINARY_API_SECRET: z.string().optional().default(""),
 });
 
 const parsed = schema.safeParse(process.env);

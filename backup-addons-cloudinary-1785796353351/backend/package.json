@@ -21,9 +21,7 @@
     "dotenv": "^17.2.1",
     "fastify": "^5.5.0",
     "zod": "^4.1.5",
-    "qrcode": "^1.5.4",
-    "@fastify/multipart": "^10.1.0",
-    "cloudinary": "^2.10.0"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

@@ -1,9 +1,25 @@
-import { FormEvent, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  FormEvent,
+  useRef,
+  useState,
+} from "react";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  ImagePlus,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
+import { AdminNav } from "../components/AdminNav";
 import { adminApi } from "../lib/api";
 import { formatMoney } from "../lib/format";
-import { AdminNav } from "../components/AdminNav";
 
 type Category = {
   id: string;
@@ -12,12 +28,21 @@ type Category = {
   position: number;
 };
 
+type Addon = {
+  id: string;
+  name: string;
+  slug: string;
+  priceCents: number;
+  position: number;
+  active: boolean;
+};
+
 type Option = {
   id: string;
   name: string;
   priceCents: number;
-  position: number;
   active: boolean;
+  addonLibraryId?: string;
 };
 
 type Group = {
@@ -28,6 +53,7 @@ type Group = {
   maxSelection: number;
   position: number;
   active: boolean;
+  libraryManaged?: boolean;
   options: Option[];
 };
 
@@ -38,6 +64,7 @@ type Product = {
   description?: string;
   priceCents: number;
   imageUrl?: string;
+  imagePublicId?: string;
   featured: boolean;
   active: boolean;
   soldOut: boolean;
@@ -46,37 +73,247 @@ type Product = {
   optionGroups: Group[];
 };
 
+type UploadResult = {
+  imageUrl: string;
+  imagePublicId: string;
+};
+
+type ProductPayload = {
+  categoryId: FormDataEntryValue | null;
+  name: FormDataEntryValue | null;
+  description?: FormDataEntryValue;
+  priceCents: number;
+  imageUrl: string;
+  imagePublicId?: string;
+  active: boolean;
+  soldOut: boolean;
+  featured: boolean;
+  position: number;
+};
+
+type ProductMutationInput = {
+  product: ProductPayload;
+  addonIds: string[];
+  maxSelection: number;
+};
+
+type EditProductMutationInput =
+  ProductMutationInput & {
+    id: string;
+  };
+
 type PatchInput = {
   path: string;
   body: unknown;
 };
 
-type ReorderCategoryInput = {
-  categoryId: string;
-  targetIndex: number;
-};
+function selectedAddonIds(product: Product) {
+  return product.optionGroups
+    .filter((group) => group.libraryManaged)
+    .flatMap((group) =>
+      group.options
+        .map((option) => option.addonLibraryId)
+        .filter((id): id is string => Boolean(id)),
+    );
+}
+
+function addonGroup(product: Product) {
+  return product.optionGroups.find(
+    (group) => group.libraryManaged,
+  );
+}
+
+function ImageUploadField({
+  value,
+  onChange,
+}: {
+  value: UploadResult | null;
+  onChange: (image: UploadResult | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] =
+    useState(false);
+  const [error, setError] = useState("");
+
+  async function selectImage(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError("Selecione um arquivo de imagem.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("A imagem deve ter no máximo 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const body = new FormData();
+      body.append("image", file);
+
+      const result = await adminApi<UploadResult>(
+        "/admin/uploads/images",
+        {
+          method: "POST",
+          body,
+        },
+      );
+
+      onChange(result);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Não foi possível enviar a imagem.",
+      );
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  return (
+    <div className="admin-image-upload">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={selectImage}
+        hidden
+      />
+
+      {value?.imageUrl ? (
+        <div className="admin-image-preview">
+          <img
+            src={value.imageUrl}
+            alt="Prévia do produto"
+          />
+
+          <div>
+            <strong>Imagem enviada</strong>
+            <small>
+              Você pode escolher outra foto para
+              substituir.
+            </small>
+
+            <div className="admin-image-actions">
+              <button
+                className="secondary"
+                type="button"
+                disabled={uploading}
+                onClick={() =>
+                  inputRef.current?.click()
+                }
+              >
+                <ImagePlus />
+                Trocar foto
+              </button>
+
+              <button
+                className="secondary danger-outline"
+                type="button"
+                disabled={uploading}
+                onClick={() => onChange(null)}
+              >
+                <Trash2 />
+                Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="admin-image-picker"
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? (
+            <LoaderCircle className="spin" />
+          ) : (
+            <UploadCloud />
+          )}
+
+          <span>
+            <strong>
+              {uploading
+                ? "Enviando imagem..."
+                : "Escolher foto da galeria"}
+            </strong>
+            <small>
+              JPG, PNG, WEBP ou outra imagem de até
+              5 MB
+            </small>
+          </span>
+        </button>
+      )}
+
+      {error && (
+        <p className="error-text">{error}</p>
+      )}
+    </div>
+  );
+}
 
 export function AdminMenuPage() {
   const client = useQueryClient();
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [
+    editingProduct,
+    setEditingProduct,
+  ] = useState<Product | null>(null);
+  const [
+    createImage,
+    setCreateImage,
+  ] = useState<UploadResult | null>(null);
+  const [
+    editImage,
+    setEditImage,
+  ] = useState<UploadResult | null>(null);
 
   const categories = useQuery({
     queryKey: ["admin-categories"],
-    queryFn: () => adminApi<Category[]>("/admin/categories"),
+    queryFn: () =>
+      adminApi<Category[]>("/admin/categories"),
   });
 
   const products = useQuery({
     queryKey: ["admin-products"],
-    queryFn: () => adminApi<Product[]>("/admin/products"),
+    queryFn: () =>
+      adminApi<Product[]>("/admin/products"),
   });
 
-  const refresh = () => {
-    client.invalidateQueries({ queryKey: ["admin-products"] });
-    client.invalidateQueries({ queryKey: ["admin-categories"] });
-    client.invalidateQueries({ queryKey: ["menu"] });
-  };
+  const addons = useQuery({
+    queryKey: ["admin-addons"],
+    queryFn: () =>
+      adminApi<Addon[]>("/admin/addons"),
+  });
+
+  function refresh() {
+    client.invalidateQueries({
+      queryKey: ["admin-products"],
+    });
+    client.invalidateQueries({
+      queryKey: ["admin-categories"],
+    });
+    client.invalidateQueries({
+      queryKey: ["admin-addons"],
+    });
+    client.invalidateQueries({
+      queryKey: ["menu"],
+    });
+  }
 
   const createCategory = useMutation({
     mutationFn: (body: unknown) =>
@@ -87,9 +324,9 @@ export function AdminMenuPage() {
     onSuccess: refresh,
   });
 
-  const createProduct = useMutation({
+  const createAddon = useMutation({
     mutationFn: (body: unknown) =>
-      adminApi("/admin/products", {
+      adminApi("/admin/addons", {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -105,67 +342,11 @@ export function AdminMenuPage() {
     onSuccess: refresh,
   });
 
-  const editProduct = useMutation({
-    mutationFn: ({ path, body }: PatchInput) =>
-      adminApi(path, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      setEditingProduct(null);
-      refresh();
-    },
-  });
-
-  const editCategory = useMutation({
-    mutationFn: ({ path, body }: PatchInput) =>
-      adminApi(path, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      setEditingCategory(null);
-      refresh();
-    },
-  });
-
-  const editGroup = useMutation({
-    mutationFn: ({ path, body }: PatchInput) =>
-      adminApi(path, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      setEditingGroup(null);
-      refresh();
-    },
-  });
-
-  const reorderCategories = useMutation({
-    mutationFn: async ({ categoryId, targetIndex }: ReorderCategoryInput) => {
-      const ordered = [...(categories.data ?? [])];
-      const currentIndex = ordered.findIndex(
-        (category) => category.id === categoryId,
-      );
-
-      if (currentIndex < 0 || currentIndex === targetIndex) return;
-
-      const [movedCategory] = ordered.splice(currentIndex, 1);
-      ordered.splice(targetIndex, 0, movedCategory);
-
-      // Atualiza em sequência para deixar as posições sempre únicas.
-      for (const [position, category] of ordered.entries()) {
-        await adminApi(`/admin/categories/${category.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ position }),
-        });
-      }
-    },
-    onSuccess: refresh,
-  });
-
   const remove = useMutation({
-    mutationFn: (path: string) => adminApi(path, { method: "DELETE" }),
+    mutationFn: (path: string) =>
+      adminApi(path, {
+        method: "DELETE",
+      }),
     onSuccess: refresh,
   });
 
@@ -178,7 +359,69 @@ export function AdminMenuPage() {
     onSuccess: refresh,
   });
 
-  function categorySubmit(event: FormEvent<HTMLFormElement>) {
+  const createProduct = useMutation({
+    mutationFn: async ({
+      product,
+      addonIds,
+      maxSelection,
+    }: ProductMutationInput) => {
+      const created = await adminApi<Product>(
+        "/admin/products",
+        {
+          method: "POST",
+          body: JSON.stringify(product),
+        },
+      );
+
+      await adminApi(
+        `/admin/products/${created.id}/addons`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            addonIds,
+            maxSelection,
+          }),
+        },
+      );
+
+      return created;
+    },
+    onSuccess: refresh,
+  });
+
+  const editProduct = useMutation({
+    mutationFn: async ({
+      id,
+      product,
+      addonIds,
+      maxSelection,
+    }: EditProductMutationInput) => {
+      await adminApi(`/admin/products/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(product),
+      });
+
+      await adminApi(
+        `/admin/products/${id}/addons`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            addonIds,
+            maxSelection,
+          }),
+        },
+      );
+    },
+    onSuccess: () => {
+      setEditingProduct(null);
+      setEditImage(null);
+      refresh();
+    },
+  });
+
+  function categorySubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
@@ -187,7 +430,8 @@ export function AdminMenuPage() {
       {
         name: form.get("name"),
         active: true,
-        position: categories.data?.length ?? 0,
+        position:
+          Number(form.get("position")) || 0,
       },
       {
         onSuccess: () => formElement.reset(),
@@ -195,22 +439,22 @@ export function AdminMenuPage() {
     );
   }
 
-  function productSubmit(event: FormEvent<HTMLFormElement>) {
+  function addonSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
-    createProduct.mutate(
+    createAddon.mutate(
       {
-        categoryId: form.get("categoryId"),
         name: form.get("name"),
-        description: form.get("description") || undefined,
-        priceCents: Math.round(Number(form.get("price")) * 100),
-        imageUrl: form.get("imageUrl") || "",
+        priceCents: Math.round(
+          Number(form.get("price")) * 100,
+        ),
+        position:
+          Number(form.get("position")) || 0,
         active: true,
-        soldOut: false,
-        featured: form.get("featured") === "on",
-        position: Number(form.get("position")) || 0,
       },
       {
         onSuccess: () => formElement.reset(),
@@ -218,70 +462,166 @@ export function AdminMenuPage() {
     );
   }
 
-  function editProductSubmit(event: FormEvent<HTMLFormElement>) {
+  async function productSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
-    if (!editingProduct) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
 
-    const form = new FormData(event.currentTarget);
+    try {
+      await createProduct.mutateAsync({
+        product: {
+          categoryId: form.get("categoryId"),
+          name: form.get("name"),
+          description:
+            form.get("description") || undefined,
+          priceCents: Math.round(
+            Number(form.get("price")) * 100,
+          ),
+          imageUrl: createImage?.imageUrl ?? "",
+          imagePublicId:
+            createImage?.imagePublicId,
+          active: true,
+          soldOut: false,
+          featured:
+            form.get("featured") === "on",
+          position:
+            Number(form.get("position")) || 0,
+        },
+        addonIds: form
+          .getAll("addonIds")
+          .map(String),
+        maxSelection: Math.max(
+          1,
+          Number(
+            form.get("addonMaxSelection"),
+          ) || 10,
+        ),
+      });
 
-    editProduct.mutate({
-      path: `/admin/products/${editingProduct.id}`,
-      body: {
-        categoryId: form.get("categoryId"),
-        name: form.get("name"),
-        description: String(form.get("description") ?? ""),
-        priceCents: Math.round(Number(form.get("price")) * 100),
-        imageUrl: form.get("imageUrl") || "",
-        position: Number(form.get("position")) || 0,
-        featured: form.get("featured") === "on",
-        active: form.get("active") === "on",
-        soldOut: form.get("soldOut") === "on",
-      },
-    });
+      formElement.reset();
+      setCreateImage(null);
+    } catch {
+      // O erro da mutation aparece no formulário.
+    }
   }
 
-  function editCategorySubmit(event: FormEvent<HTMLFormElement>) {
+  async function editSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
-    if (!editingCategory) return;
 
-    const form = new FormData(event.currentTarget);
+    if (!editingProduct) {
+      return;
+    }
 
-    editCategory.mutate({
-      path: `/admin/categories/${editingCategory.id}`,
-      body: {
-        name: form.get("name"),
-        active: form.get("active") === "on",
-      },
-    });
+    const form = new FormData(
+      event.currentTarget,
+    );
+
+    try {
+      await editProduct.mutateAsync({
+        id: editingProduct.id,
+        product: {
+          categoryId: form.get("categoryId"),
+          name: form.get("name"),
+          description:
+            form.get("description") || undefined,
+          priceCents: Math.round(
+            Number(form.get("price")) * 100,
+          ),
+          imageUrl: editImage?.imageUrl ?? "",
+          imagePublicId:
+            editImage?.imagePublicId,
+          position:
+            Number(form.get("position")) || 0,
+          featured:
+            form.get("featured") === "on",
+          active:
+            form.get("active") === "on",
+          soldOut:
+            form.get("soldOut") === "on",
+        },
+        addonIds: form
+          .getAll("addonIds")
+          .map(String),
+        maxSelection: Math.max(
+          1,
+          Number(
+            form.get("addonMaxSelection"),
+          ) || 10,
+        ),
+      });
+    } catch {
+      // O erro da mutation aparece no modal.
+    }
   }
 
-  function editGroupSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editingGroup) return;
+  function openEdit(product: Product) {
+    setEditingProduct(product);
+    setEditImage(
+      product.imageUrl
+        ? {
+            imageUrl: product.imageUrl,
+            imagePublicId:
+              product.imagePublicId ?? "",
+          }
+        : null,
+    );
+  }
 
-    const form = new FormData(event.currentTarget);
+  function editAddon(addon: Addon) {
+    const name = prompt(
+      "Nome do adicional",
+      addon.name,
+    );
 
-    editGroup.mutate({
-      path: `/admin/option-groups/${editingGroup.id}`,
+    if (!name) {
+      return;
+    }
+
+    const price = Number(
+      prompt(
+        "Preço padrão em reais",
+        String(addon.priceCents / 100),
+      ) ?? addon.priceCents / 100,
+    );
+
+    const position = Number(
+      prompt(
+        "Posição",
+        String(addon.position),
+      ) ?? addon.position,
+    );
+
+    patch.mutate({
+      path: `/admin/addons/${addon.id}`,
       body: {
-        name: form.get("name"),
-        required: form.get("required") === "on",
-        minSelection: Number(form.get("minSelection")) || 0,
-        maxSelection: Number(form.get("maxSelection")) || 1,
-        position: Number(form.get("position")) || 0,
-        active: form.get("active") === "on",
+        name,
+        priceCents: Math.round(price * 100),
+        position,
       },
     });
   }
 
   function addGroup(productId: string) {
-    const name = prompt("Nome do grupo, por exemplo: Adicionais");
-    if (!name) return;
+    const name = prompt(
+      "Nome do grupo, por exemplo: Escolha o pão",
+    );
 
-    const maxSelection = Number(prompt("Máximo de escolhas", "1") || 1);
+    if (!name) {
+      return;
+    }
+
+    const maxSelection = Number(
+      prompt("Máximo de escolhas", "1") || 1,
+    );
 
     create.mutate({
-      path: `/admin/products/${productId}/option-groups`,
+      path:
+        `/admin/products/${productId}` +
+        "/option-groups",
       body: {
         name,
         required: false,
@@ -295,12 +635,22 @@ export function AdminMenuPage() {
 
   function addOption(groupId: string) {
     const name = prompt("Nome da opção");
-    if (!name) return;
 
-    const price = Number(prompt("Preço adicional em reais", "0") || 0);
+    if (!name) {
+      return;
+    }
+
+    const price = Number(
+      prompt(
+        "Preço adicional em reais",
+        "0",
+      ) || 0,
+    );
 
     create.mutate({
-      path: `/admin/option-groups/${groupId}/options`,
+      path:
+        `/admin/option-groups/${groupId}` +
+        "/options",
       body: {
         name,
         priceCents: Math.round(price * 100),
@@ -309,6 +659,10 @@ export function AdminMenuPage() {
       },
     });
   }
+
+  const activeAddons =
+    addons.data?.filter((addon) => addon.active) ??
+    [];
 
   return (
     <main className="admin-page">
@@ -321,8 +675,156 @@ export function AdminMenuPage() {
         </div>
       </header>
 
+      <section className="addon-library-section">
+        <div className="section-title">
+          <div>
+            <small>Cadastre uma vez e reutilize</small>
+            <h2>Biblioteca de adicionais</h2>
+          </div>
+
+          <span>
+            {addons.data?.length ?? 0} cadastrados
+          </span>
+        </div>
+
+        <div className="addon-library-layout">
+          <form
+            className="admin-form"
+            onSubmit={addonSubmit}
+          >
+            <h2>Novo adicional</h2>
+
+            <label className="field">
+              <span>Nome</span>
+              <input
+                name="name"
+                placeholder="Ex.: Bacon"
+                required
+              />
+            </label>
+
+            <div className="field-grid">
+              <label className="field">
+                <span>Preço padrão em R$</span>
+                <input
+                  name="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </label>
+
+              <label className="field">
+                <span>Posição</span>
+                <input
+                  name="position"
+                  type="number"
+                  min="0"
+                  defaultValue="0"
+                />
+              </label>
+            </div>
+
+            {createAddon.error && (
+              <p className="error-text">
+                {createAddon.error.message}
+              </p>
+            )}
+
+            <button
+              className="primary"
+              disabled={createAddon.isPending}
+            >
+              <Plus />
+              Criar adicional
+            </button>
+          </form>
+
+          <div className="addon-library-list">
+            {addons.isLoading && (
+              <p>Carregando adicionais...</p>
+            )}
+
+            {addons.data?.length === 0 && (
+              <div className="addon-library-empty">
+                Nenhum adicional cadastrado.
+              </div>
+            )}
+
+            {addons.data?.map((addon) => (
+              <article
+                className={`addon-library-item ${
+                  addon.active ? "" : "inactive"
+                }`}
+                key={addon.id}
+              >
+                <div>
+                  <strong>{addon.name}</strong>
+                  <small>
+                    posição {addon.position}
+                  </small>
+                </div>
+
+                <b>
+                  {formatMoney(addon.priceCents)}
+                </b>
+
+                <div className="addon-library-actions">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => editAddon(addon)}
+                  >
+                    <Pencil />
+                    Editar
+                  </button>
+
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() =>
+                      patch.mutate({
+                        path:
+                          `/admin/addons/${addon.id}`,
+                        body: {
+                          active: !addon.active,
+                        },
+                      })
+                    }
+                  >
+                    {addon.active
+                      ? "Desativar"
+                      : "Ativar"}
+                  </button>
+
+                  <button
+                    className="icon-button danger"
+                    type="button"
+                    aria-label={`Excluir ${addon.name}`}
+                    onClick={() =>
+                      confirm(
+                        "Excluir este adicional da biblioteca e removê-lo dos produtos?",
+                      ) &&
+                      remove.mutate(
+                        `/admin/addons/${addon.id}`,
+                      )
+                    }
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="admin-form-grid">
-        <form className="admin-form" onSubmit={categorySubmit}>
+        <form
+          className="admin-form"
+          onSubmit={categorySubmit}
+        >
           <h2>Nova categoria</h2>
 
           <label className="field">
@@ -330,28 +832,51 @@ export function AdminMenuPage() {
             <input name="name" required />
           </label>
 
-          <p>
-            A nova categoria será criada no final do mostruário. Depois você
-            poderá escolher a posição exata na lista abaixo.
-          </p>
+          <label className="field">
+            <span>Posição</span>
+            <input
+              name="position"
+              type="number"
+              min="0"
+              defaultValue="0"
+            />
+          </label>
 
-          <button className="primary" disabled={createCategory.isPending}>
-            <Plus /> Criar categoria
+          <button
+            className="primary"
+            disabled={createCategory.isPending}
+          >
+            <Plus />
+            Criar categoria
           </button>
         </form>
 
-        <form className="admin-form" onSubmit={productSubmit}>
+        <form
+          className="admin-form"
+          onSubmit={productSubmit}
+        >
           <h2>Novo produto</h2>
 
           <label className="field">
             <span>Categoria</span>
-            <select name="categoryId" required>
-              <option value="">Selecione</option>
-              {categories.data?.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
+            <select
+              name="categoryId"
+              required
+            >
+              <option value="">
+                Selecione
+              </option>
+
+              {categories.data?.map(
+                (category) => (
+                  <option
+                    key={category.id}
+                    value={category.id}
+                  >
+                    {category.name}
+                  </option>
+                ),
+              )}
             </select>
           </label>
 
@@ -378,133 +903,134 @@ export function AdminMenuPage() {
             </label>
 
             <label className="field">
-              <span>Posição dentro da categoria</span>
-              <input name="position" type="number" min="0" defaultValue="0" />
-            </label>
-
-            <label className="field full">
-              <span>URL da imagem</span>
-              <input name="imageUrl" type="url" />
+              <span>Posição</span>
+              <input
+                name="position"
+                type="number"
+                min="0"
+                defaultValue="0"
+              />
             </label>
           </div>
 
-          <label className="admin-check">
-            <input name="featured" type="checkbox" /> Produto em destaque
+          <label className="field">
+            <span>Foto do produto</span>
+            <ImageUploadField
+              value={createImage}
+              onChange={setCreateImage}
+            />
           </label>
 
-          <button className="primary" disabled={createProduct.isPending}>
-            <Plus /> Criar produto
+          <fieldset className="product-addon-picker">
+            <legend>
+              Adicionais deste produto
+            </legend>
+
+            {activeAddons.length === 0 ? (
+              <p>
+                Cadastre adicionais na biblioteca
+                acima para poder selecioná-los.
+              </p>
+            ) : (
+              <div className="product-addon-grid">
+                {activeAddons.map((addon) => (
+                  <label key={addon.id}>
+                    <input
+                      type="checkbox"
+                      name="addonIds"
+                      value={addon.id}
+                    />
+
+                    <span>
+                      <strong>{addon.name}</strong>
+                      <small>
+                        {formatMoney(
+                          addon.priceCents,
+                        )}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <label className="field addon-max-field">
+              <span>
+                Máximo de adicionais por lanche
+              </span>
+              <input
+                name="addonMaxSelection"
+                type="number"
+                min="1"
+                max="50"
+                defaultValue="10"
+              />
+            </label>
+          </fieldset>
+
+          <label className="admin-check">
+            <input
+              name="featured"
+              type="checkbox"
+            />
+            Produto em destaque
+          </label>
+
+          {createProduct.error && (
+            <p className="error-text">
+              {createProduct.error.message}
+            </p>
+          )}
+
+          <button
+            className="primary"
+            disabled={
+              createProduct.isPending
+            }
+          >
+            <Plus />
+            {createProduct.isPending
+              ? "Criando..."
+              : "Criar produto"}
           </button>
         </form>
       </section>
 
       <section className="admin-products">
         <div className="section-title">
-          <div>
-            <h2>Categorias do mostruário</h2>
-            <small>A 1ª posição aparece primeiro para o cliente.</small>
-          </div>
-          <span>{categories.data?.length ?? 0} cadastradas</span>
-        </div>
-
-        {categories.data?.map((category, index) => (
-          <article className="admin-product" key={category.id}>
-            <div className="admin-product-main">
-              <div className="admin-product-placeholder">{index + 1}</div>
-              <div>
-                <small>
-                  {index + 1}ª posição · {category.active ? "publicada" : "oculta"}
-                </small>
-                <h3>{category.name}</h3>
-                <label className="field">
-                  <span>Posição no mostruário</span>
-                  <select
-                    value={index}
-                    disabled={reorderCategories.isPending}
-                    onChange={(event) =>
-                      reorderCategories.mutate({
-                        categoryId: category.id,
-                        targetIndex: Number(event.target.value),
-                      })
-                    }
-                  >
-                    {categories.data?.map((_, positionIndex) => (
-                      <option key={positionIndex} value={positionIndex}>
-                        {positionIndex + 1}ª posição
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="admin-product-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setEditingCategory(category)}
-              >
-                <Pencil /> Editar
-              </button>
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  patch.mutate({
-                    path: `/admin/categories/${category.id}`,
-                    body: { active: !category.active },
-                  })
-                }
-              >
-                {category.active ? "Ocultar" : "Publicar"}
-              </button>
-
-              <button
-                type="button"
-                className="icon-button danger"
-                onClick={() =>
-                  confirm(
-                    `Excluir a categoria ${category.name}? Ela só poderá ser excluída se não possuir produtos.`,
-                  ) && remove.mutate(`/admin/categories/${category.id}`)
-                }
-                aria-label={`Excluir ${category.name}`}
-              >
-                <Trash2 />
-              </button>
-            </div>
-          </article>
-        ))}
-
-        {(remove.error || reorderCategories.error) && (
-          <p className="error-text">
-            {(remove.error ?? reorderCategories.error)?.message}
-          </p>
-        )}
-      </section>
-
-      <section className="admin-products">
-        <div className="section-title">
           <h2>Produtos</h2>
-          <span>{products.data?.length ?? 0} cadastrados</span>
+          <span>
+            {products.data?.length ?? 0} cadastrados
+          </span>
         </div>
 
         {products.data?.map((product) => (
-          <article className="admin-product" key={product.id}>
+          <article
+            className="admin-product"
+            key={product.id}
+          >
             <div className="admin-product-main">
               {product.imageUrl ? (
-                <img src={product.imageUrl} alt="" />
+                <img
+                  src={product.imageUrl}
+                  alt=""
+                />
               ) : (
-                <div className="admin-product-placeholder">🍔</div>
+                <div className="admin-product-placeholder">
+                  🍔
+                </div>
               )}
 
               <div>
                 <small>
-                  {product.category.name} · posição {product.position}
+                  {product.category.name} · posição{" "}
+                  {product.position}
                 </small>
                 <h3>{product.name}</h3>
                 <p>{product.description}</p>
-                <strong>{formatMoney(product.priceCents)}</strong>
+                <strong>
+                  {formatMoney(product.priceCents)}
+                </strong>
               </div>
             </div>
 
@@ -512,9 +1038,10 @@ export function AdminMenuPage() {
               <button
                 type="button"
                 className="secondary"
-                onClick={() => setEditingProduct(product)}
+                onClick={() => openEdit(product)}
               >
-                <Pencil /> Editar
+                <Pencil />
+                Editar
               </button>
 
               <button
@@ -522,12 +1049,17 @@ export function AdminMenuPage() {
                 className="secondary"
                 onClick={() =>
                   patch.mutate({
-                    path: `/admin/products/${product.id}`,
-                    body: { soldOut: !product.soldOut },
+                    path:
+                      `/admin/products/${product.id}`,
+                    body: {
+                      soldOut: !product.soldOut,
+                    },
                   })
                 }
               >
-                {product.soldOut ? "Marcar disponível" : "Marcar esgotado"}
+                {product.soldOut
+                  ? "Marcar disponível"
+                  : "Marcar esgotado"}
               </button>
 
               <button
@@ -535,18 +1067,25 @@ export function AdminMenuPage() {
                 className="secondary"
                 onClick={() =>
                   patch.mutate({
-                    path: `/admin/products/${product.id}`,
-                    body: { active: !product.active },
+                    path:
+                      `/admin/products/${product.id}`,
+                    body: {
+                      active: !product.active,
+                    },
                   })
                 }
               >
-                {product.active ? "Ocultar" : "Publicar"}
+                {product.active
+                  ? "Ocultar"
+                  : "Publicar"}
               </button>
 
               <button
                 type="button"
                 className="secondary"
-                onClick={() => addGroup(product.id)}
+                onClick={() =>
+                  addGroup(product.id)
+                }
               >
                 Adicionar grupo
               </button>
@@ -556,7 +1095,9 @@ export function AdminMenuPage() {
                 className="icon-button danger"
                 onClick={() =>
                   confirm("Excluir produto?") &&
-                  remove.mutate(`/admin/products/${product.id}`)
+                  remove.mutate(
+                    `/admin/products/${product.id}`,
+                  )
                 }
                 aria-label={`Excluir ${product.name}`}
               >
@@ -565,63 +1106,54 @@ export function AdminMenuPage() {
             </div>
 
             {product.optionGroups.map((group) => (
-              <div className="admin-option-group" key={group.id}>
+              <div
+                className="admin-option-group"
+                key={group.id}
+              >
                 <div>
                   <div>
                     <strong>{group.name}</strong>
-                    <small>
-                      {group.active ? "Ativo" : "Oculto"} · posição {group.position}
-                      {group.required ? " · obrigatório" : " · opcional"} · mínimo {group.minSelection} · máximo {group.maxSelection}
-                    </small>
+                    {group.libraryManaged && (
+                      <small>
+                        Sincronizado com a biblioteca de
+                        adicionais
+                      </small>
+                    )}
                   </div>
 
-                  <div className="admin-product-actions">
+                  {!group.libraryManaged && (
                     <button
                       type="button"
-                      className="secondary"
-                      onClick={() => setEditingGroup(group)}
-                    >
-                      <Pencil /> Editar grupo
-                    </button>
-
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => addOption(group.id)}
-                    >
-                      <Plus /> Opção
-                    </button>
-
-                    <button
-                      type="button"
-                      className="icon-button danger"
                       onClick={() =>
-                        confirm(
-                          `Excluir o grupo ${group.name} e todas as opções dele?`,
-                        ) && remove.mutate(`/admin/option-groups/${group.id}`)
+                        addOption(group.id)
                       }
-                      aria-label={`Excluir grupo ${group.name}`}
                     >
-                      <Trash2 />
+                      + opção
                     </button>
-                  </div>
+                  )}
                 </div>
 
                 {group.options.map((option) => (
                   <span key={option.id}>
                     {option.name}{" "}
                     {option.priceCents > 0 &&
-                      `+ ${formatMoney(option.priceCents)}`}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        confirm(`Excluir a opção ${option.name}?`) &&
-                        remove.mutate(`/admin/options/${option.id}`)
-                      }
-                      aria-label={`Excluir ${option.name}`}
-                    >
-                      ×
-                    </button>
+                      `+ ${formatMoney(
+                        option.priceCents,
+                      )}`}
+
+                    {!group.libraryManaged && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          remove.mutate(
+                            `/admin/options/${option.id}`,
+                          )
+                        }
+                        aria-label={`Excluir ${option.name}`}
+                      >
+                        ×
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -633,17 +1165,25 @@ export function AdminMenuPage() {
       {editingProduct && (
         <div
           className="modal-backdrop"
-          onMouseDown={() => setEditingProduct(null)}
+          onMouseDown={() => {
+            setEditingProduct(null);
+            setEditImage(null);
+          }}
         >
           <form
             className="modal admin-edit-modal"
-            onSubmit={editProductSubmit}
-            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={editSubmit}
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
           >
             <button
               className="icon-button close"
               type="button"
-              onClick={() => setEditingProduct(null)}
+              onClick={() => {
+                setEditingProduct(null);
+                setEditImage(null);
+              }}
               aria-label="Fechar edição"
             >
               <X />
@@ -657,14 +1197,21 @@ export function AdminMenuPage() {
                 <span>Categoria</span>
                 <select
                   name="categoryId"
-                  defaultValue={editingProduct.categoryId}
+                  defaultValue={
+                    editingProduct.categoryId
+                  }
                   required
                 >
-                  {categories.data?.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
+                  {categories.data?.map(
+                    (category) => (
+                      <option
+                        key={category.id}
+                        value={category.id}
+                      >
+                        {category.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </label>
 
@@ -672,7 +1219,9 @@ export function AdminMenuPage() {
                 <span>Nome</span>
                 <input
                   name="name"
-                  defaultValue={editingProduct.name}
+                  defaultValue={
+                    editingProduct.name
+                  }
                   required
                 />
               </label>
@@ -681,7 +1230,9 @@ export function AdminMenuPage() {
                 <span>Descrição</span>
                 <textarea
                   name="description"
-                  defaultValue={editingProduct.description}
+                  defaultValue={
+                    editingProduct.description
+                  }
                 />
               </label>
 
@@ -693,38 +1244,96 @@ export function AdminMenuPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    defaultValue={editingProduct.priceCents / 100}
+                    defaultValue={
+                      editingProduct.priceCents /
+                      100
+                    }
                     required
                   />
                 </label>
 
                 <label className="field">
-                  <span>Posição no cardápio</span>
+                  <span>
+                    Posição no cardápio
+                  </span>
                   <input
                     name="position"
                     type="number"
                     min="0"
-                    defaultValue={editingProduct.position}
-                  />
-                </label>
-
-                <label className="field full">
-                  <span>URL da imagem</span>
-                  <input
-                    name="imageUrl"
-                    type="url"
-                    defaultValue={editingProduct.imageUrl}
+                    defaultValue={
+                      editingProduct.position
+                    }
                   />
                 </label>
               </div>
+
+              <label className="field">
+                <span>Foto do produto</span>
+                <ImageUploadField
+                  value={editImage}
+                  onChange={setEditImage}
+                />
+              </label>
+
+              <fieldset className="product-addon-picker">
+                <legend>
+                  Adicionais deste produto
+                </legend>
+
+                <div className="product-addon-grid">
+                  {addons.data?.map((addon) => (
+                    <label key={addon.id}>
+                      <input
+                        type="checkbox"
+                        name="addonIds"
+                        value={addon.id}
+                        defaultChecked={selectedAddonIds(
+                          editingProduct,
+                        ).includes(addon.id)}
+                      />
+
+                      <span>
+                        <strong>
+                          {addon.name}
+                        </strong>
+                        <small>
+                          {formatMoney(
+                            addon.priceCents,
+                          )}
+                          {!addon.active &&
+                            " · desativado"}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <label className="field addon-max-field">
+                  <span>
+                    Máximo de adicionais por lanche
+                  </span>
+                  <input
+                    name="addonMaxSelection"
+                    type="number"
+                    min="1"
+                    max="50"
+                    defaultValue={
+                      addonGroup(editingProduct)
+                        ?.maxSelection ?? 10
+                    }
+                  />
+                </label>
+              </fieldset>
 
               <div className="edit-check-grid">
                 <label className="admin-check">
                   <input
                     name="featured"
                     type="checkbox"
-                    defaultChecked={editingProduct.featured}
-                  />{" "}
+                    defaultChecked={
+                      editingProduct.featured
+                    }
+                  />
                   Destaque
                 </label>
 
@@ -732,8 +1341,10 @@ export function AdminMenuPage() {
                   <input
                     name="active"
                     type="checkbox"
-                    defaultChecked={editingProduct.active}
-                  />{" "}
+                    defaultChecked={
+                      editingProduct.active
+                    }
+                  />
                   Publicado
                 </label>
 
@@ -741,171 +1352,27 @@ export function AdminMenuPage() {
                   <input
                     name="soldOut"
                     type="checkbox"
-                    defaultChecked={editingProduct.soldOut}
-                  />{" "}
+                    defaultChecked={
+                      editingProduct.soldOut
+                    }
+                  />
                   Esgotado
                 </label>
               </div>
 
               {editProduct.error && (
-                <p className="error-text">{editProduct.error.message}</p>
+                <p className="error-text">
+                  {editProduct.error.message}
+                </p>
               )}
 
-              <button className="primary" disabled={editProduct.isPending}>
-                {editProduct.isPending ? "Salvando..." : "Salvar alterações"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {editingCategory && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={() => setEditingCategory(null)}
-        >
-          <form
-            className="modal admin-edit-modal"
-            onSubmit={editCategorySubmit}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              className="icon-button close"
-              type="button"
-              onClick={() => setEditingCategory(null)}
-              aria-label="Fechar edição da categoria"
-            >
-              <X />
-            </button>
-
-            <div className="modal-body admin-edit-form">
-              <small>Editar categoria</small>
-              <h2>{editingCategory.name}</h2>
-
-              <label className="field">
-                <span>Nome</span>
-                <input
-                  name="name"
-                  defaultValue={editingCategory.name}
-                  required
-                />
-              </label>
-
-              <label className="admin-check">
-                <input
-                  name="active"
-                  type="checkbox"
-                  defaultChecked={editingCategory.active}
-                />{" "}
-                Exibir no mostruário
-              </label>
-
-              {editCategory.error && (
-                <p className="error-text">{editCategory.error.message}</p>
-              )}
-
-              <button className="primary" disabled={editCategory.isPending}>
-                {editCategory.isPending ? "Salvando..." : "Salvar categoria"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {editingGroup && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={() => setEditingGroup(null)}
-        >
-          <form
-            className="modal admin-edit-modal"
-            onSubmit={editGroupSubmit}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              className="icon-button close"
-              type="button"
-              onClick={() => setEditingGroup(null)}
-              aria-label="Fechar edição do grupo"
-            >
-              <X />
-            </button>
-
-            <div className="modal-body admin-edit-form">
-              <small>Editar grupo de opções</small>
-              <h2>{editingGroup.name}</h2>
-
-              <label className="field">
-                <span>Nome do grupo</span>
-                <input
-                  name="name"
-                  defaultValue={editingGroup.name}
-                  required
-                />
-              </label>
-
-              <div className="field-grid">
-                <label className="field">
-                  <span>Mínimo de escolhas</span>
-                  <input
-                    name="minSelection"
-                    type="number"
-                    min="0"
-                    max="20"
-                    defaultValue={editingGroup.minSelection}
-                    required
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Máximo de escolhas</span>
-                  <input
-                    name="maxSelection"
-                    type="number"
-                    min="1"
-                    max="20"
-                    defaultValue={editingGroup.maxSelection}
-                    required
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Posição do grupo</span>
-                  <input
-                    name="position"
-                    type="number"
-                    min="0"
-                    defaultValue={editingGroup.position}
-                  />
-                </label>
-              </div>
-
-              <div className="edit-check-grid">
-                <label className="admin-check">
-                  <input
-                    name="required"
-                    type="checkbox"
-                    defaultChecked={editingGroup.required}
-                  />{" "}
-                  Grupo obrigatório
-                </label>
-
-                <label className="admin-check">
-                  <input
-                    name="active"
-                    type="checkbox"
-                    defaultChecked={editingGroup.active}
-                  />{" "}
-                  Grupo ativo
-                </label>
-              </div>
-
-              {editGroup.error && (
-                <p className="error-text">{editGroup.error.message}</p>
-              )}
-
-              <button className="primary" disabled={editGroup.isPending}>
-                {editGroup.isPending ? "Salvando..." : "Salvar grupo"}
+              <button
+                className="primary"
+                disabled={editProduct.isPending}
+              >
+                {editProduct.isPending
+                  ? "Salvando..."
+                  : "Salvar alterações"}
               </button>
             </div>
           </form>

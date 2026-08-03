@@ -4,10 +4,6 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { HttpError } from "../lib/http-error.js";
 import { slugify } from "../lib/slug.js";
-import {
-  deleteCloudinaryImage,
-  uploadProductImage,
-} from "../lib/cloudinary.js";
 import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
@@ -28,25 +24,11 @@ const productSchema = z.object({
   description: z.string().trim().max(1000).optional(),
   priceCents: z.coerce.number().int().min(0),
   imageUrl: z.string().url().optional().or(z.literal("")),
-  imagePublicId: z.string().trim().max(200).optional().or(z.literal("")),
   featured: z.boolean().default(false),
   active: z.boolean().default(true),
   soldOut: z.boolean().default(false),
   position: z.coerce.number().int().min(0).default(0),
 });
-const addonSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  slug: z.string().trim().optional(),
-  priceCents: z.coerce.number().int().min(0),
-  position: z.coerce.number().int().min(0).default(0),
-  active: z.boolean().default(true),
-});
-
-const productAddonsSchema = z.object({
-  addonIds: z.array(z.string().min(1)).max(50).default([]),
-  maxSelection: z.coerce.number().int().min(1).max(50).default(10),
-});
-
 const zoneSchema = z.object({
   name: z.string().trim().min(2).max(100),
   feeCents: z.coerce.number().int().min(0),
@@ -440,173 +422,6 @@ export async function adminRoutes(app: FastifyInstance) {
     },
   );
 
-  app.post(
-    "/admin/uploads/images",
-    { preHandler: app.authenticateAdmin },
-    async (request, reply) => {
-      const file = await request.file();
-
-      if (!file) {
-        throw new HttpError(
-          422,
-          "Selecione uma imagem",
-          "IMAGE_REQUIRED",
-        );
-      }
-
-      if (!file.mimetype.startsWith("image/")) {
-        throw new HttpError(
-          422,
-          "O arquivo selecionado não é uma imagem",
-          "INVALID_IMAGE_TYPE",
-        );
-      }
-
-      const buffer = await file.toBuffer();
-
-      if (buffer.length > 5 * 1024 * 1024) {
-        throw new HttpError(
-          422,
-          "A imagem deve ter no máximo 5 MB",
-          "IMAGE_TOO_LARGE",
-        );
-      }
-
-      const uploaded =
-        await uploadProductImage(buffer);
-
-      await audit(
-        request,
-        "UPLOAD",
-        "PRODUCT_IMAGE",
-        uploaded.imagePublicId,
-        {
-          bytes: uploaded.bytes,
-          width: uploaded.width,
-          height: uploaded.height,
-          format: uploaded.format,
-        },
-      );
-
-      return reply.code(201).send(uploaded);
-    },
-  );
-
-  app.get(
-    "/admin/addons",
-    { preHandler: app.authenticateAdmin },
-    async () =>
-      prisma.addonLibraryItem.findMany({
-        orderBy: [
-          { position: "asc" },
-          { name: "asc" },
-        ],
-      }),
-  );
-
-  app.post(
-    "/admin/addons",
-    { preHandler: app.authenticateAdmin },
-    async (request, reply) => {
-      const input = addonSchema.parse(request.body);
-      const addon =
-        await prisma.addonLibraryItem.create({
-          data: {
-            ...input,
-            slug: slugify(
-              input.slug || input.name,
-            ),
-          },
-        });
-
-      await audit(
-        request,
-        "CREATE",
-        "ADDON_LIBRARY",
-        addon.id,
-        input,
-      );
-
-      return reply.code(201).send(addon);
-    },
-  );
-
-  app.patch(
-    "/admin/addons/:id",
-    { preHandler: app.authenticateAdmin },
-    async (request) => {
-      const { id } = z
-        .object({ id: z.string() })
-        .parse(request.params);
-      const input =
-        addonSchema.partial().parse(request.body);
-
-      const addon =
-        await prisma.addonLibraryItem.update({
-          where: { id },
-          data: {
-            ...input,
-            ...(input.slug || input.name
-              ? {
-                  slug: slugify(
-                    input.slug ||
-                      input.name ||
-                      "",
-                  ),
-                }
-              : {}),
-          },
-        });
-
-      await prisma.productOption.updateMany({
-        where: { addonLibraryId: id },
-        data: {
-          name: addon.name,
-          priceCents: addon.priceCents,
-          position: addon.position,
-          active: addon.active,
-        },
-      });
-
-      await audit(
-        request,
-        "UPDATE",
-        "ADDON_LIBRARY",
-        id,
-        input,
-      );
-
-      return addon;
-    },
-  );
-
-  app.delete(
-    "/admin/addons/:id",
-    { preHandler: app.authenticateAdmin },
-    async (request, reply) => {
-      const { id } = z
-        .object({ id: z.string() })
-        .parse(request.params);
-
-      await prisma.productOption.deleteMany({
-        where: { addonLibraryId: id },
-      });
-
-      await prisma.addonLibraryItem.delete({
-        where: { id },
-      });
-
-      await audit(
-        request,
-        "DELETE",
-        "ADDON_LIBRARY",
-        id,
-      );
-
-      return reply.code(204).send();
-    },
-  );
-
   app.get("/admin/categories", { preHandler: app.authenticateAdmin }, async () => prisma.category.findMany({ orderBy: [{ position: "asc" }, { createdAt: "desc" }] }));
   app.post("/admin/categories", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const input = categorySchema.parse(request.body);
@@ -632,27 +447,14 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get("/admin/products", { preHandler: app.authenticateAdmin }, async () => prisma.product.findMany({ orderBy: [{ position: "asc" }, { createdAt: "desc" }], include: { category: true, optionGroups: { include: { options: true } } } }));
   app.post("/admin/products", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const input = productSchema.parse(request.body);
-    const product = await prisma.product.create({ data: {
-      ...input,
-      imageUrl: input.imageUrl || undefined,
-      imagePublicId:
-        input.imagePublicId || undefined,
-      slug: slugify(input.slug || input.name) } });
+    const product = await prisma.product.create({ data: { ...input, imageUrl: input.imageUrl || undefined, slug: slugify(input.slug || input.name) } });
     await audit(request, "CREATE", "PRODUCT", product.id, input);
     return reply.code(201).send(product);
   });
   app.patch("/admin/products/:id", { preHandler: app.authenticateAdmin }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const input = productSchema.partial().parse(request.body);
-    const product = await prisma.product.update({ where: { id }, data: { ...input, ...(input.imageUrl !== undefined
-      ? { imageUrl: input.imageUrl || null }
-      : {}),
-    ...(input.imagePublicId !== undefined
-      ? {
-          imagePublicId:
-            input.imagePublicId || null,
-        }
-      : {}), ...(input.slug || input.name ? { slug: slugify(input.slug || input.name || "") } : {}) } });
+    const product = await prisma.product.update({ where: { id }, data: { ...input, ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl || null } : {}), ...(input.slug || input.name ? { slug: slugify(input.slug || input.name || "") } : {}) } });
     await audit(request, "UPDATE", "PRODUCT", id, input);
     return product;
   });
@@ -687,171 +489,6 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
-
-  app.put(
-    "/admin/products/:productId/addons",
-    { preHandler: app.authenticateAdmin },
-    async (request) => {
-      const { productId } = z
-        .object({ productId: z.string() })
-        .parse(request.params);
-      const input =
-        productAddonsSchema.parse(request.body);
-
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-      });
-
-      if (!product) {
-        throw new HttpError(
-          404,
-          "Produto não encontrado",
-          "PRODUCT_NOT_FOUND",
-        );
-      }
-
-      const addons =
-        input.addonIds.length > 0
-          ? await prisma.addonLibraryItem.findMany({
-              where: {
-                id: { in: input.addonIds },
-              },
-            })
-          : [];
-
-      if (addons.length !== input.addonIds.length) {
-        throw new HttpError(
-          422,
-          "Um dos adicionais selecionados não existe",
-          "ADDON_NOT_FOUND",
-        );
-      }
-
-      let group =
-        await prisma.productOptionGroup.findFirst({
-          where: {
-            productId,
-            libraryManaged: true,
-          },
-        });
-
-      if (!group && input.addonIds.length > 0) {
-        group =
-          await prisma.productOptionGroup.create({
-            data: {
-              productId,
-              name: "Adicionais",
-              required: false,
-              minSelection: 0,
-              maxSelection:
-                input.maxSelection,
-              position: 100,
-              active: true,
-              libraryManaged: true,
-            },
-          });
-      }
-
-      if (group) {
-        await prisma.productOptionGroup.update({
-          where: { id: group.id },
-          data: {
-            maxSelection:
-              input.maxSelection,
-            active: true,
-          },
-        });
-
-        const currentOptions =
-          await prisma.productOption.findMany({
-            where: {
-              groupId: group.id,
-              addonLibraryId: {
-                not: null,
-              },
-            },
-          });
-
-        const selectedSet = new Set(
-          input.addonIds,
-        );
-
-        const optionsToDelete =
-          currentOptions.filter(
-            (option) =>
-              !option.addonLibraryId ||
-              !selectedSet.has(
-                option.addonLibraryId,
-              ),
-          );
-
-        if (optionsToDelete.length > 0) {
-          await prisma.productOption.deleteMany({
-            where: {
-              id: {
-                in: optionsToDelete.map(
-                  (option) => option.id,
-                ),
-              },
-            },
-          });
-        }
-
-        for (const addon of addons) {
-          const existing =
-            currentOptions.find(
-              (option) =>
-                option.addonLibraryId === addon.id,
-            );
-
-          if (existing) {
-            await prisma.productOption.update({
-              where: { id: existing.id },
-              data: {
-                name: addon.name,
-                priceCents:
-                  addon.priceCents,
-                position: addon.position,
-                active: addon.active,
-              },
-            });
-          } else {
-            await prisma.productOption.create({
-              data: {
-                groupId: group.id,
-                addonLibraryId: addon.id,
-                name: addon.name,
-                priceCents:
-                  addon.priceCents,
-                position: addon.position,
-                active: addon.active,
-              },
-            });
-          }
-        }
-      }
-
-      await audit(
-        request,
-        "SYNC_ADDONS",
-        "PRODUCT",
-        productId,
-        input,
-      );
-
-      return prisma.product.findUnique({
-        where: { id: productId },
-        include: {
-          category: true,
-          optionGroups: {
-            include: {
-              options: true,
-            },
-          },
-        },
-      });
-    },
-  );
 
   app.post("/admin/products/:productId/option-groups", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { productId } = z.object({ productId: z.string() }).parse(request.params);
