@@ -143,7 +143,10 @@ export function AdminSettingsPage() {
         form.get("manualPixReceiverCity") ||
         undefined,
       whatsappConfirmation: true,
-      whatsappNotificationsEnabled: false,
+      whatsappNotificationsEnabled:
+        form.get(
+          "whatsappNotificationsEnabled",
+        ) === "on",
     });
   }
 
@@ -534,7 +537,18 @@ export function AdminSettingsPage() {
               PIX habilitado
             </label>
 
-            
+            <label>
+              <input
+                name="whatsappNotificationsEnabled"
+                type="checkbox"
+                defaultChecked={
+                  s.whatsappNotificationsEnabled ??
+                  false
+                }
+              />{" "}
+              Notificações automáticas pelo
+              WhatsApp
+            </label>
           </div>
 
           {saveSettings.error && (

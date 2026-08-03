@@ -1,61 +1,35 @@
-# Pix duplo compatível com o bot de WhatsApp
+# WhatsApp manual + detalhes do pedido — v3
 
-Esta versão é específica para o projeto no qual o bot de WhatsApp já foi aplicado.
+As versões anteriores pararam antes de alterar arquivos porque tentavam remover
+chamadas da API oficial em formatos diferentes do código local.
 
-Ela mantém:
+A versão v3 usa uma estratégia mais segura:
 
-- consentimento no checkout;
-- notificações automáticas por status;
-- botão de reenvio do WhatsApp;
-- registro de notificações;
-- cálculo de entrega por distância.
-
-E adiciona:
-
-- escolha entre Mercado Pago e Pix manual;
-- QR Code Pix direto para a chave da loja;
-- botão “Já fiz o PIX” para o cliente;
-- confirmação manual no painel;
-- faturamento apenas depois da confirmação;
-- chave Pix removida da resposta pública `/store`.
+- mantém as rotas antigas para preservar compatibilidade;
+- desativa a WhatsApp Cloud API no serviço central;
+- remove a opção automática da tela de configurações;
+- adiciona o histórico à listagem administrativa;
+- instala o painel lateral de detalhes;
+- abre `wa.me` com a mensagem pronta;
+- não altera o Prisma.
 
 ## Aplicar
 
-Na raiz do projeto:
+Extraia na raiz e execute:
 
 ```bash
 cd ~/Desktop/mesa4
-node aplicar-pix-duplo-whatsapp-v3.mjs
+node aplicar-whatsapp-manual-detalhes-v3.mjs
 ```
 
 Depois:
 
 ```bash
 cd backend
-npm install
-npm run prisma:generate
-npm run prisma:push
 npm run build
 
 cd ../frontend
 npm run build
 ```
 
-## Configurar
-
-Depois do deploy:
-
-```text
-https://www.mesaiv.online/admin/configuracoes
-```
-
-Escolha:
-
-- Mercado Pago; ou
-- Pix manual.
-
-No Pix manual, informe o tipo da chave, a chave, o nome do recebedor e a cidade.
-
-## Segurança
-
-O clique do cliente em “Já fiz o PIX” apenas informa o pagamento. O administrador deve conferir o aplicativo bancário antes de clicar em “Confirmar Pix manual”.
+Não execute `prisma:push`.

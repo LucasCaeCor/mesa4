@@ -1,12 +1,24 @@
 import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import {
   Banknote,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  MapPin,
   MessageCircle,
+  PackageCheck,
   RefreshCw,
+  UserRound,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AdminNav } from "../components/AdminNav";
@@ -14,20 +26,41 @@ import { adminApi } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import type { OrderStatus } from "../types";
 
-type WhatsAppNotification = {
-  id: string;
-  orderStatus: OrderStatus;
-  deliveryStatus: string;
-  errorMessage?: string;
-  createdAt: string;
-};
-
 type AdminPayment = {
   id: string;
   provider: string;
+  method: string;
+  providerPaymentId?: string;
   status: string;
   statusDetail?: string;
+  amountCents: number;
   reportedAt?: string;
+  createdAt: string;
+};
+
+type OrderOption = {
+  id: string;
+  groupName?: string;
+  optionName: string;
+  unitPriceCents?: number;
+  quantity?: number;
+};
+
+type AdminOrderItem = {
+  id: string;
+  quantity: number;
+  productName: string;
+  unitPriceCents: number;
+  lineTotalCents: number;
+  notes?: string;
+  options: OrderOption[];
+};
+
+type StatusHistoryEntry = {
+  id: string;
+  status: OrderStatus;
+  note?: string;
+  createdAt: string;
 };
 
 type AdminOrder = {
@@ -35,32 +68,50 @@ type AdminOrder = {
   publicId: string;
   customerName: string;
   customerPhone: string;
+  customerEmail: string;
+  customerDocument?: string;
   whatsappOptIn?: boolean | null;
-  fulfillment: string;
-  totalCents: number;
-  status: OrderStatus;
-  createdAt: string;
+  fulfillment: "DELIVERY" | "PICKUP";
   deliveryZoneName?: string;
+  postalCode?: string;
   street?: string;
   number?: string;
+  complement?: string;
   neighborhood?: string;
+  city?: string;
+  state?: string;
+  reference?: string;
+  notes?: string;
+  subtotalCents: number;
+  deliveryFeeCents: number;
+  deliveryDistanceMeters?: number;
+  deliveryDurationSeconds?: number;
+  discountCents: number;
+  totalCents: number;
+  status: OrderStatus;
+  paidAt?: string;
+  canceledAt?: string;
+  createdAt: string;
+  updatedAt: string;
   payments: AdminPayment[];
-  whatsappNotifications?: WhatsAppNotification[];
-  items: Array<{
-    id: string;
-    quantity: number;
-    productName: string;
-    options: Array<{
-      id: string;
-      optionName: string;
-    }>;
-  }>;
+  items: AdminOrderItem[];
+  statusHistory: StatusHistoryEntry[];
 };
 
 type Dashboard = {
   openOrders: number;
   paidToday: number;
   revenueTodayCents: number;
+};
+
+type StatusUpdateInput = {
+  order: AdminOrder;
+  status: OrderStatus;
+};
+
+type WhatsAppPrompt = {
+  order: AdminOrder;
+  status: OrderStatus;
 };
 
 const flow: OrderStatus[] = [
@@ -84,18 +135,131 @@ const labels: Record<OrderStatus, string> = {
   CANCELED: "Cancelado",
 };
 
-const notificationLabels: Record<string, string> = {
-  SENDING: "Enviando",
-  ACCEPTED: "Aceita pela Meta",
-  SENT: "Enviada",
-  DELIVERED: "Entregue",
-  READ: "Lida",
-  FAILED: "Falhou",
+const paymentLabels: Record<string, string> = {
+  PENDING: "Aguardando pagamento",
+  APPROVED: "Aprovado",
+  IN_PROCESS: "Em análise",
+  REJECTED: "Recusado",
+  CANCELED: "Cancelado",
+  REFUNDED: "Estornado",
+  EXPIRED: "Expirado",
 };
+
+function normalizeWhatsAppPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  if (
+    digits.startsWith("55") &&
+    (digits.length === 12 || digits.length === 13)
+  ) {
+    return digits;
+  }
+
+  if (digits.length === 10 || digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  return digits;
+}
+
+function statusMessage(
+  order: AdminOrder,
+  status: OrderStatus,
+) {
+  const firstName =
+    order.customerName.trim().split(/\s+/)[0] ||
+    order.customerName;
+
+  const messages: Record<OrderStatus, string> = {
+    PENDING_PAYMENT:
+      "Seu pedido foi recebido e estamos aguardando a confirmação do pagamento.",
+    PAID:
+      "Recebemos o pagamento do seu pedido. Obrigado!",
+    CONFIRMED:
+      "Seu pedido foi confirmado pela loja.",
+    PREPARING:
+      "Seu pedido já está sendo preparado. 🍔",
+    READY:
+      order.fulfillment === "PICKUP"
+        ? "Seu pedido está pronto para retirada."
+        : "Seu pedido está pronto e será encaminhado para entrega.",
+    OUT_FOR_DELIVERY:
+      "Seu pedido saiu para entrega. 🛵",
+    DELIVERED:
+      "Seu pedido foi entregue. Bom apetite!",
+    CANCELED:
+      "Seu pedido foi cancelado. Entre em contato com a loja em caso de dúvida.",
+  };
+
+  return [
+    `Olá, ${firstName}!`,
+    "",
+    messages[status],
+    "",
+    `Pedido: *${order.publicId}*`,
+    `Status: *${labels[status]}*`,
+    `Total: *${formatMoney(order.totalCents)}*`,
+    "",
+    "Mesa IV Burgers 🍔",
+  ].join("\n");
+}
+
+function openWhatsApp(
+  order: AdminOrder,
+  status = order.status,
+) {
+  const phone = normalizeWhatsAppPhone(
+    order.customerPhone,
+  );
+
+  if (phone.length < 12) {
+    window.alert(
+      "O telefone deste cliente parece estar incompleto.",
+    );
+    return;
+  }
+
+  const message = statusMessage(order, status);
+  const url =
+    `https://wa.me/${phone}` +
+    `?text=${encodeURIComponent(message)}`;
+
+  window.open(
+    url,
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
+function formatDistance(meters?: number) {
+  if (!meters) {
+    return "Não calculada";
+  }
+
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+function formatDuration(seconds?: number) {
+  if (!seconds) {
+    return "Não calculado";
+  }
+
+  return `${Math.max(1, Math.ceil(seconds / 60))} min`;
+}
+
+function paymentProviderLabel(provider?: string) {
+  return provider === "MANUAL_PIX"
+    ? "Pix manual"
+    : "Mercado Pago";
+}
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [selectedOrderId, setSelectedOrderId] =
+    useState<string | null>(null);
+  const [whatsappPrompt, setWhatsappPrompt] =
+    useState<WhatsAppPrompt | null>(null);
 
   const orders = useQuery({
     queryKey: ["admin-orders"],
@@ -113,39 +277,88 @@ export function AdminDashboardPage() {
     retry: false,
   });
 
+  const selectedOrder = useMemo(
+    () =>
+      orders.data?.find(
+        (order) => order.id === selectedOrderId,
+      ) ?? null,
+    [orders.data, selectedOrderId],
+  );
+
   const update = useMutation({
     mutationFn: ({
-      id,
+      order,
       status,
-    }: {
-      id: string;
-      status: OrderStatus;
-    }) =>
-      adminApi(`/admin/orders/${id}/status`, {
+    }: StatusUpdateInput) =>
+      adminApi(`/admin/orders/${order.id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }),
-    onSuccess() {
+    onSuccess(_result, variables) {
       queryClient.invalidateQueries({
         queryKey: ["admin-orders"],
       });
       queryClient.invalidateQueries({
         queryKey: ["admin-dashboard"],
       });
+
+      if (
+        variables.order.customerPhone &&
+        variables.order.whatsappOptIn !== false
+      ) {
+        setWhatsappPrompt({
+          order: variables.order,
+          status: variables.status,
+        });
+      }
     },
   });
 
-  const notify = useMutation({
-    mutationFn: (id: string) =>
-      adminApi(`/admin/orders/${id}/whatsapp`, {
-        method: "POST",
-      }),
-    onSuccess() {
-      queryClient.invalidateQueries({
-        queryKey: ["admin-orders"],
-      });
-    },
-  });
+  useEffect(() => {
+    if (!selectedOrder && selectedOrderId) {
+      setSelectedOrderId(null);
+    }
+  }, [selectedOrder, selectedOrderId]);
+
+  useEffect(() => {
+    const modalOpen =
+      Boolean(selectedOrderId) ||
+      Boolean(whatsappPrompt);
+
+    if (!modalOpen) {
+      return;
+    }
+
+    const previousOverflow =
+      document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (whatsappPrompt) {
+        setWhatsappPrompt(null);
+      } else {
+        setSelectedOrderId(null);
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      closeOnEscape,
+    );
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+      window.removeEventListener(
+        "keydown",
+        closeOnEscape,
+      );
+    };
+  }, [selectedOrderId, whatsappPrompt]);
 
   if (
     orders.error &&
@@ -157,6 +370,50 @@ export function AdminDashboardPage() {
     );
     navigate("/admin/login");
     return null;
+  }
+
+  function changeStatus(
+    order: AdminOrder,
+    status: OrderStatus,
+  ) {
+    update.mutate({ order, status });
+  }
+
+  function renderStatusButtons(order: AdminOrder) {
+    const payment = order.payments?.[0];
+    const isManualPix =
+      payment?.provider === "MANUAL_PIX";
+
+    return flow.map((status) => {
+      if (
+        status === "PAID" &&
+        !isManualPix &&
+        order.status === "PENDING_PAYMENT"
+      ) {
+        return null;
+      }
+
+      const buttonLabel =
+        status === "PAID" && isManualPix
+          ? "Confirmar Pix manual"
+          : labels[status];
+
+      return (
+        <button
+          key={status}
+          type="button"
+          disabled={
+            update.isPending ||
+            order.status === status
+          }
+          onClick={() =>
+            changeStatus(order, status)
+          }
+        >
+          {buttonLabel}
+        </button>
+      );
+    });
   }
 
   return (
@@ -221,8 +478,6 @@ export function AdminDashboardPage() {
             payment?.provider === "MANUAL_PIX";
           const customerReported =
             Boolean(payment?.reportedAt);
-          const lastNotification =
-            order.whatsappNotifications?.[0];
 
           return (
             <article
@@ -246,9 +501,9 @@ export function AdminDashboardPage() {
                   <div className="payment-provider-row">
                     <span className="payment-provider-chip">
                       <Banknote />
-                      {isManualPix
-                        ? "Pix manual"
-                        : "Mercado Pago"}
+                      {paymentProviderLabel(
+                        payment?.provider,
+                      )}
                     </span>
 
                     {isManualPix &&
@@ -266,36 +521,6 @@ export function AdminDashboardPage() {
                             : "Aguardando cliente pagar"}
                         </span>
                       )}
-                  </div>
-
-                  <div className="whatsapp-admin-status">
-                    <span
-                      className={
-                        order.whatsappOptIn
-                          ? "whatsapp-opted-in"
-                          : "whatsapp-opted-out"
-                      }
-                    >
-                      <MessageCircle size={15} />
-                      {order.whatsappOptIn
-                        ? "WhatsApp autorizado"
-                        : "Sem autorização"}
-                    </span>
-
-                    {lastNotification && (
-                      <small
-                        title={
-                          lastNotification.errorMessage ??
-                          ""
-                        }
-                      >
-                        Último envio:{" "}
-                        {notificationLabels[
-                          lastNotification.deliveryStatus
-                        ] ??
-                          lastNotification.deliveryStatus}
-                      </small>
-                    )}
                   </div>
                 </div>
 
@@ -348,76 +573,472 @@ export function AdminDashboardPage() {
               </div>
 
               <div className="status-actions">
-                {flow.map((status) => {
-                  if (
-                    status === "PAID" &&
-                    !isManualPix &&
-                    order.status ===
-                      "PENDING_PAYMENT"
-                  ) {
-                    return null;
-                  }
-
-                  const buttonLabel =
-                    status === "PAID" &&
-                    isManualPix
-                      ? "Confirmar Pix manual"
-                      : labels[status];
-
-                  return (
-                    <button
-                      key={status}
-                      disabled={
-                        update.isPending ||
-                        order.status === status
-                      }
-                      onClick={() =>
-                        update.mutate({
-                          id: order.id,
-                          status,
-                        })
-                      }
-                    >
-                      {buttonLabel}
-                    </button>
-                  );
-                })}
+                {renderStatusButtons(order)}
               </div>
 
-              <div className="whatsapp-admin-actions">
+              <div className="order-card-actions">
                 <button
                   className="secondary"
                   type="button"
+                  onClick={() =>
+                    setSelectedOrderId(order.id)
+                  }
+                >
+                  <Eye />
+                  Ver pedido
+                </button>
+
+                <button
+                  className="secondary whatsapp-manual-button"
+                  type="button"
                   disabled={
-                    !order.whatsappOptIn ||
-                    notify.isPending
+                    !order.customerPhone ||
+                    order.whatsappOptIn === false
+                  }
+                  title={
+                    order.whatsappOptIn === false
+                      ? "O cliente não autorizou atualizações pelo WhatsApp"
+                      : "Abrir conversa com mensagem pronta"
                   }
                   onClick={() =>
-                    notify.mutate(order.id)
+                    openWhatsApp(order)
                   }
                 >
                   <MessageCircle />
-                  {notify.isPending
-                    ? "Enviando..."
-                    : "Reenviar status no WhatsApp"}
+                  Avisar cliente
                 </button>
               </div>
+
+              {order.whatsappOptIn === false && (
+                <small className="whatsapp-consent-warning">
+                  O cliente não autorizou atualizações
+                  pelo WhatsApp.
+                </small>
+              )}
 
               {update.error && (
                 <p className="error-text">
                   {update.error.message}
                 </p>
               )}
-
-              {notify.error && (
-                <p className="error-text">
-                  {notify.error.message}
-                </p>
-              )}
             </article>
           );
         })}
       </section>
+
+      {selectedOrder && (
+        <div
+          className="order-detail-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedOrderId(null);
+            }
+          }}
+        >
+          <aside
+            className="order-detail-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Detalhes do pedido ${selectedOrder.publicId}`}
+          >
+            <header className="order-detail-header">
+              <div>
+                <small>Detalhes do pedido</small>
+                <h2>{selectedOrder.publicId}</h2>
+                <span
+                  className={`status-chip ${selectedOrder.status.toLowerCase()}`}
+                >
+                  {labels[selectedOrder.status]}
+                </span>
+              </div>
+
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Fechar detalhes"
+                onClick={() =>
+                  setSelectedOrderId(null)
+                }
+              >
+                <X />
+              </button>
+            </header>
+
+            <div className="order-detail-content">
+              <section className="order-detail-section">
+                <h3>
+                  <UserRound />
+                  Cliente
+                </h3>
+
+                <div className="order-detail-grid">
+                  <div>
+                    <span>Nome</span>
+                    <strong>
+                      {selectedOrder.customerName}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Telefone</span>
+                    <strong>
+                      {selectedOrder.customerPhone}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>E-mail</span>
+                    <strong>
+                      {selectedOrder.customerEmail}
+                    </strong>
+                  </div>
+
+                  {selectedOrder.customerDocument && (
+                    <div>
+                      <span>Documento</span>
+                      <strong>
+                        {
+                          selectedOrder.customerDocument
+                        }
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="order-detail-section">
+                <h3>
+                  <PackageCheck />
+                  Pedido
+                </h3>
+
+                <div className="order-detail-items">
+                  {selectedOrder.items.map((item) => (
+                    <article key={item.id}>
+                      <div>
+                        <strong>
+                          {item.quantity}x{" "}
+                          {item.productName}
+                        </strong>
+                        <span>
+                          {formatMoney(
+                            item.lineTotalCents,
+                          )}
+                        </span>
+                      </div>
+
+                      {item.options.length > 0 && (
+                        <ul>
+                          {item.options.map(
+                            (option) => (
+                              <li key={option.id}>
+                                {option.groupName
+                                  ? `${option.groupName}: `
+                                  : ""}
+                                {option.optionName}
+                                {option.unitPriceCents
+                                  ? ` (+${formatMoney(
+                                      option.unitPriceCents,
+                                    )})`
+                                  : ""}
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      )}
+
+                      {item.notes && (
+                        <small>
+                          Observação: {item.notes}
+                        </small>
+                      )}
+                    </article>
+                  ))}
+                </div>
+
+                {selectedOrder.notes && (
+                  <div className="order-general-notes">
+                    <span>
+                      Observação do pedido
+                    </span>
+                    <p>{selectedOrder.notes}</p>
+                  </div>
+                )}
+              </section>
+
+              <section className="order-detail-section">
+                <h3>
+                  <MapPin />
+                  {selectedOrder.fulfillment ===
+                  "DELIVERY"
+                    ? "Entrega"
+                    : "Retirada"}
+                </h3>
+
+                {selectedOrder.fulfillment ===
+                "DELIVERY" ? (
+                  <>
+                    <p className="order-address">
+                      {selectedOrder.street},{" "}
+                      {selectedOrder.number}
+                      {selectedOrder.complement
+                        ? ` — ${selectedOrder.complement}`
+                        : ""}
+                      <br />
+                      {selectedOrder.neighborhood} —{" "}
+                      {selectedOrder.city}/
+                      {selectedOrder.state}
+                      <br />
+                      CEP {selectedOrder.postalCode}
+                    </p>
+
+                    {selectedOrder.reference && (
+                      <p className="order-reference">
+                        Referência:{" "}
+                        {selectedOrder.reference}
+                      </p>
+                    )}
+
+                    <div className="order-detail-grid">
+                      <div>
+                        <span>Distância</span>
+                        <strong>
+                          {formatDistance(
+                            selectedOrder.deliveryDistanceMeters,
+                          )}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Trajeto estimado</span>
+                        <strong>
+                          {formatDuration(
+                            selectedOrder.deliveryDurationSeconds,
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p>
+                    O cliente retirará o pedido na loja.
+                  </p>
+                )}
+              </section>
+
+              <section className="order-detail-section">
+                <h3>
+                  <Banknote />
+                  Pagamento e valores
+                </h3>
+
+                <div className="order-detail-grid">
+                  <div>
+                    <span>Forma</span>
+                    <strong>
+                      {paymentProviderLabel(
+                        selectedOrder.payments?.[0]
+                          ?.provider,
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Status</span>
+                    <strong>
+                      {paymentLabels[
+                        selectedOrder.payments?.[0]
+                          ?.status
+                      ] ??
+                        selectedOrder.payments?.[0]
+                          ?.status ??
+                        "Não informado"}
+                    </strong>
+                  </div>
+                </div>
+
+                {selectedOrder.payments?.[0]
+                  ?.reportedAt && (
+                  <p className="manual-payment-alert">
+                    O cliente informou que realizou o
+                    Pix em{" "}
+                    {new Date(
+                      selectedOrder.payments[0]
+                        .reportedAt as string,
+                    ).toLocaleString("pt-BR")}
+                    . Confira o banco antes de confirmar.
+                  </p>
+                )}
+
+                <div className="order-values">
+                  <div>
+                    <span>Subtotal</span>
+                    <strong>
+                      {formatMoney(
+                        selectedOrder.subtotalCents,
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Entrega</span>
+                    <strong>
+                      {formatMoney(
+                        selectedOrder.deliveryFeeCents,
+                      )}
+                    </strong>
+                  </div>
+
+                  {selectedOrder.discountCents > 0 && (
+                    <div>
+                      <span>Desconto</span>
+                      <strong>
+                        -
+                        {formatMoney(
+                          selectedOrder.discountCents,
+                        )}
+                      </strong>
+                    </div>
+                  )}
+
+                  <div className="order-total-row">
+                    <span>Total</span>
+                    <strong>
+                      {formatMoney(
+                        selectedOrder.totalCents,
+                      )}
+                    </strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="order-detail-section">
+                <h3>
+                  <Clock3 />
+                  Histórico
+                </h3>
+
+                <div className="admin-order-timeline">
+                  {selectedOrder.statusHistory.map(
+                    (entry) => (
+                      <div key={entry.id}>
+                        <span>
+                          <CheckCircle2 />
+                        </span>
+
+                        <div>
+                          <strong>
+                            {labels[entry.status]}
+                          </strong>
+                          <small>
+                            {new Date(
+                              entry.createdAt,
+                            ).toLocaleString("pt-BR")}
+                          </small>
+                          {entry.note && (
+                            <p>{entry.note}</p>
+                          )}
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <footer className="order-detail-footer">
+              <div className="status-actions">
+                {renderStatusButtons(selectedOrder)}
+              </div>
+
+              <button
+                className="primary"
+                type="button"
+                disabled={
+                  !selectedOrder.customerPhone ||
+                  selectedOrder.whatsappOptIn ===
+                    false
+                }
+                onClick={() =>
+                  openWhatsApp(selectedOrder)
+                }
+              >
+                <MessageCircle />
+                Avisar cliente no WhatsApp
+              </button>
+            </footer>
+          </aside>
+        </div>
+      )}
+
+      {whatsappPrompt && (
+        <div
+          className="whatsapp-prompt-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setWhatsappPrompt(null);
+            }
+          }}
+        >
+          <section
+            className="whatsapp-prompt"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Avisar cliente pelo WhatsApp"
+          >
+            <div className="whatsapp-prompt-icon">
+              <MessageCircle />
+            </div>
+
+            <h2>Status atualizado</h2>
+            <p>
+              O pedido{" "}
+              <strong>
+                {whatsappPrompt.order.publicId}
+              </strong>{" "}
+              agora está como{" "}
+              <strong>
+                {labels[whatsappPrompt.status]}
+              </strong>
+              .
+            </p>
+
+            <p>
+              Deseja abrir o WhatsApp do cliente com a
+              mensagem pronta?
+            </p>
+
+            <div className="whatsapp-prompt-actions">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() =>
+                  setWhatsappPrompt(null)
+                }
+              >
+                Agora não
+              </button>
+
+              <button
+                className="primary"
+                type="button"
+                onClick={() => {
+                  openWhatsApp(
+                    whatsappPrompt.order,
+                    whatsappPrompt.status,
+                  );
+                  setWhatsappPrompt(null);
+                }}
+              >
+                <MessageCircle />
+                Abrir WhatsApp
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

@@ -251,9 +251,6 @@ export async function adminRoutes(app: FastifyInstance) {
       include: {
         items: { include: { options: true } },
         payments: { orderBy: { createdAt: "desc" }, take: 1 },
-        statusHistory: {
-          orderBy: { createdAt: "asc" },
-        },
         whatsappNotifications: {
           orderBy: { createdAt: "desc" },
           take: 1,

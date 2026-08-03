@@ -53,8 +53,10 @@ export type WhatsAppSendResult = {
 };
 
 function isConfigured() {
-  // WhatsApp Cloud API desativada: envio manual pelo painel
-  return false;
+  return Boolean(
+    env.WHATSAPP_PHONE_NUMBER_ID &&
+      env.WHATSAPP_ACCESS_TOKEN,
+  );
 }
 
 function normalizeBrazilianPhone(phone: string) {
