@@ -10,16 +10,27 @@ import { useCart } from "../store/cart";
 export function MenuPage() {
   const [selected, setSelected] = useState<Product | null>(null);
   const menu = useQuery({ queryKey: ["menu"], queryFn: () => api<MenuResponse>("/menu") });
-  const store = useQuery({ queryKey: ["store"], queryFn: () => api<StoreResponse>("/store") });
+  const store = useQuery({
+    queryKey: ["store"],
+    queryFn: () =>
+      api<StoreResponse>("/store", {
+        cache: "no-store",
+      }),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
   const items = useCart((state) => state.items);
   const setOpen = useCart((state) => state.setOpen);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const settings = store.data?.settings;
+  /* MESA4_MENU_BUSINESS_HOURS */
+  const isStoreOpen =
+    store.data?.availability.isOpen ?? false;
 
   return <main>
     <header className="hero" style={settings?.heroImageUrl ? { backgroundImage: `linear-gradient(90deg, rgba(17,16,14,.96), rgba(17,16,14,.45)), url(${settings.heroImageUrl})` } : undefined}>
       <nav><div className="brand">{settings?.logoUrl ? <img src={settings.logoUrl} alt="" /> : <span>M4</span>}<strong>{settings?.storeName ?? "Mesa IV Burgers"}</strong></div><div className="nav-actions">{settings?.instagramUrl && <a className="icon-button" href={settings.instagramUrl} target="_blank" rel="noreferrer"><Instagram /></a>}<button className="cart-button" onClick={() => setOpen(true)}><ShoppingBag /><span>{totalQuantity || "Carrinho"}</span></button></div></nav>
-      <div className="hero-content"><span className={`store-status ${settings?.acceptingOrders ? "open" : "closed"}`}>{settings?.acceptingOrders ? "Aceitando pedidos" : "Fechado agora"}</span><h1>Ainda tem<br /><em>LUGAR NA MESA.</em></h1><p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
+      <div className="hero-content"><span className={`store-status ${isStoreOpen ? "open" : "closed"}`}>{isStoreOpen ? "Aceitando pedidos" : "Fechado agora"}</span><h1>Ainda tem<br /><em>LUGAR NA MESA.</em></h1><p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
     </header>
     <section className="menu-container">
       {menu.isLoading && <p>Carregando cardápio...</p>}

@@ -49,8 +49,17 @@ export function CheckoutPage() {
   } = useCart();
   const store = useQuery({
     queryKey: ["store"],
-    queryFn: () => api<StoreResponse>("/store"),
+    queryFn: () =>
+      api<StoreResponse>("/store", {
+        cache: "no-store",
+      }),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
+
+  /* MESA4_CHECKOUT_BUSINESS_HOURS */
+  const isStoreOpen =
+    store.data?.availability.isOpen ?? false;
 
   /* MESA4_CHECKOUT_SUGGESTIONS */
   const menu = useQuery({
@@ -203,6 +212,11 @@ export function CheckoutPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!isStoreOpen) {
+      return;
+    }
+
     const form = new FormData(event.currentTarget);
 
     mutation.mutate({
@@ -597,12 +611,22 @@ export function CheckoutPage() {
               ? "Pix direto para a chave da loja. Depois de pagar, avise pelo acompanhamento e aguarde a conferência."
               : "Pagamento seguro por PIX com confirmação automática. O preço final é recalculado pelo servidor."}
           </p>
+          {!store.isLoading &&
+            !isStoreOpen && (
+              <p className="store-closed-checkout">
+                A loja está fechada agora. Os pedidos
+                são liberados automaticamente dentro
+                do horário configurado.
+              </p>
+            )}
+
           {mutation.error && (
             <p className="error-text">{mutation.error.message}</p>
           )}
           <button
             className="primary"
             disabled={
+              !isStoreOpen ||
               mutation.isPending ||
               store.isLoading ||
               (fulfillment === "DELIVERY" &&
@@ -610,8 +634,10 @@ export function CheckoutPage() {
                 !deliveryQuote.data)
             }
           >
-            {mutation.isPending
-              ? "Gerando PIX..."
+            {!isStoreOpen
+              ? "Loja fechada agora"
+              : mutation.isPending
+                ? "Gerando PIX..."
               : fulfillment === "DELIVERY" &&
                   dynamicDeliveryEnabled &&
                   !deliveryQuote.data

@@ -40,7 +40,19 @@ export type StoreSettings = {
     | boolean
     | null;
 };
-export type StoreResponse = { settings: StoreSettings; hours: Array<{ weekday: number; enabled: boolean; opensAt: string; closesAt: string }>; deliveryZones: DeliveryZone[] };
+export type StoreAvailability = {
+  isOpen: boolean;
+  reason:
+    | "OPEN"
+    | "MANUALLY_CLOSED"
+    | "OUTSIDE_BUSINESS_HOURS"
+    | "SETTINGS_NOT_FOUND";
+  timezone: string;
+  currentWeekday: number;
+  currentTime: string;
+};
+
+export type StoreResponse = { settings: StoreSettings; availability: StoreAvailability; hours: Array<{ weekday: number; enabled: boolean; opensAt: string; closesAt: string }>; deliveryZones: DeliveryZone[] };
 export type MenuResponse = { categories: Category[] };
 export type CartSelection = { optionId: string; optionName: string; groupName: string; priceCents: number; quantity: number };
 export type CartItem = { key: string; productId: string; productName: string; imageUrl?: string; basePriceCents: number; quantity: number; notes?: string; options: CartSelection[] };

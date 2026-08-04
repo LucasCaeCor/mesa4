@@ -36,15 +36,6 @@ export async function createOrder(input: CreateOrderInput) {
     }),
   ]);
 
-  /* MESA4_STORE_SETTINGS_NULL_GUARD */
-  if (!settings) {
-    throw new HttpError(
-      503,
-      "As configurações da loja não foram encontradas",
-      "STORE_SETTINGS_NOT_FOUND",
-    );
-  }
-
   const availability =
     evaluateStoreAvailability(
       settings,

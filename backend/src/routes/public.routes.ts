@@ -10,19 +10,31 @@ import {
 import { buildWhatsAppMessage } from "../lib/whatsapp.js";
 import { lookupAddressByCep } from "../modules/address/cep.service.js";
 import { calculateDeliveryQuote } from "../modules/delivery/openroute.service.js";
+import { evaluateStoreAvailability } from "../lib/store-hours.js";
 
 export async function publicRoutes(app: FastifyInstance) {
-  app.get("/store", async () => {
-    const [settings, hours, deliveryZones] =
-      await Promise.all([
+  app.get(
+    "/store",
+    async (_request, reply) => {
+      const [
+        settings,
+        hours,
+        deliveryZones,
+      ] = await Promise.all([
         prisma.storeSettings.findUnique({
-          where: { singletonKey: "default" },
+          where: {
+            singletonKey: "default",
+          },
         }),
         prisma.businessHour.findMany({
-          orderBy: { weekday: "asc" },
+          orderBy: {
+            weekday: "asc",
+          },
         }),
         prisma.deliveryZone.findMany({
-          where: { active: true },
+          where: {
+            active: true,
+          },
           orderBy: [
             { position: "asc" },
             { name: "asc" },
@@ -30,25 +42,40 @@ export async function publicRoutes(app: FastifyInstance) {
         }),
       ]);
 
-    const publicSettings = settings
-      ? {
-          ...settings,
-          manualPixKey: undefined,
-          manualPixKeyType: undefined,
-          manualPixReceiverName: undefined,
-          manualPixReceiverCity: undefined,
-          pixPaymentMode:
-            settings.pixPaymentMode ??
-            "MERCADO_PAGO",
-        }
-      : settings;
+      const publicSettings = settings
+        ? {
+            ...settings,
+            manualPixKey: undefined,
+            manualPixKeyType: undefined,
+            manualPixReceiverName: undefined,
+            manualPixReceiverCity: undefined,
+            pixPaymentMode:
+              settings.pixPaymentMode ??
+              "MERCADO_PAGO",
+          }
+        : settings;
 
-    return {
-      settings: publicSettings,
-      hours,
-      deliveryZones,
-    };
-  });
+      /* MESA4_BUSINESS_HOURS_AVAILABILITY */
+      const availability =
+        evaluateStoreAvailability(
+          settings,
+          hours,
+        );
+
+      reply.header(
+        "Cache-Control",
+        "no-store, max-age=0",
+      );
+
+      return {
+        settings: publicSettings,
+        availability,
+        hours,
+        deliveryZones,
+      };
+    },
+  );
+
   app.get("/menu", async () => {
     const categories = await prisma.category.findMany({
       where: { active: true },
