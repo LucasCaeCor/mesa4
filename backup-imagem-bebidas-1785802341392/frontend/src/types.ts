@@ -1,6 +1,6 @@
 export type ProductOption = { id: string; name: string; priceCents: number; active: boolean };
 export type ProductOptionGroup = { id: string; name: string; required: boolean; minSelection: number; maxSelection: number; options: ProductOption[] };
-export type Product = { id: string; name: string; description?: string; priceCents: number; imageUrl?: string; featured: boolean; suggestAtCheckout: boolean; soldOut: boolean; optionGroups: ProductOptionGroup[] };
+export type Product = { id: string; name: string; description?: string; priceCents: number; imageUrl?: string; featured: boolean; soldOut: boolean; optionGroups: ProductOptionGroup[] };
 export type Category = { id: string; name: string; slug: string; products: Product[] };
 export type DeliveryZone = { id: string; name: string; feeCents: number; minimumOrderCents: number; estimatedMinutes?: number };
 export type StoreSettings = {

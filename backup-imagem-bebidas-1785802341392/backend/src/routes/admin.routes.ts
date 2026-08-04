@@ -30,7 +30,6 @@ const productSchema = z.object({
   imageUrl: z.string().url().optional().or(z.literal("")),
   imagePublicId: z.string().trim().max(200).optional().or(z.literal("")),
   featured: z.boolean().default(false),
-  suggestAtCheckout: z.boolean().default(false),
   active: z.boolean().default(true),
   soldOut: z.boolean().default(false),
   position: z.coerce.number().int().min(0).default(0),

@@ -66,7 +66,6 @@ type Product = {
   imageUrl?: string;
   imagePublicId?: string;
   featured: boolean;
-  suggestAtCheckout: boolean;
   active: boolean;
   soldOut: boolean;
   position: number;
@@ -76,7 +75,7 @@ type Product = {
 
 type UploadResult = {
   imageUrl: string;
-  imagePublicId?: string;
+  imagePublicId: string;
 };
 
 type ProductPayload = {
@@ -87,7 +86,6 @@ type ProductPayload = {
   imageUrl: string;
   imagePublicId?: string;
   active: boolean;
-  suggestAtCheckout: boolean;
   soldOut: boolean;
   featured: boolean;
   position: number;
@@ -133,18 +131,6 @@ function ImageUploadField({
   onChange: (image: UploadResult | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [source, setSource] = useState<
-    "upload" | "url"
-  >(
-    value?.imageUrl && !value.imagePublicId
-      ? "url"
-      : "upload",
-  );
-  const [imageUrl, setImageUrl] = useState(
-    value?.imageUrl && !value.imagePublicId
-      ? value.imageUrl
-      : "",
-  );
   const [uploading, setUploading] =
     useState(false);
   const [error, setError] = useState("");
@@ -185,8 +171,6 @@ function ImageUploadField({
         },
       );
 
-      setSource("upload");
-      setImageUrl("");
       onChange(result);
     } catch (uploadError) {
       setError(
@@ -200,43 +184,6 @@ function ImageUploadField({
     }
   }
 
-  function applyImageUrl() {
-    const normalized = imageUrl.trim();
-
-    if (!normalized) {
-      setError("Cole o link direto da imagem.");
-      return;
-    }
-
-    try {
-      const parsed = new URL(normalized);
-
-      if (
-        parsed.protocol !== "https:" &&
-        parsed.protocol !== "http:"
-      ) {
-        throw new Error();
-      }
-    } catch {
-      setError(
-        "Informe um link válido começando com http:// ou https://.",
-      );
-      return;
-    }
-
-    setError("");
-    onChange({
-      imageUrl: normalized,
-      imagePublicId: "",
-    });
-  }
-
-  function removeImage() {
-    setImageUrl("");
-    setError("");
-    onChange(null);
-  }
-
   return (
     <div className="admin-image-upload">
       <input
@@ -247,36 +194,46 @@ function ImageUploadField({
         hidden
       />
 
-      <div className="image-source-tabs">
-        <button
-          type="button"
-          className={
-            source === "upload" ? "active" : ""
-          }
-          onClick={() => {
-            setSource("upload");
-            setError("");
-          }}
-        >
-          <UploadCloud />
-          Arquivo do aparelho
-        </button>
+      {value?.imageUrl ? (
+        <div className="admin-image-preview">
+          <img
+            src={value.imageUrl}
+            alt="Prévia do produto"
+          />
 
-        <button
-          type="button"
-          className={
-            source === "url" ? "active" : ""
-          }
-          onClick={() => {
-            setSource("url");
-            setError("");
-          }}
-        >
-          🔗 Link da imagem
-        </button>
-      </div>
+          <div>
+            <strong>Imagem enviada</strong>
+            <small>
+              Você pode escolher outra foto para
+              substituir.
+            </small>
 
-      {source === "upload" ? (
+            <div className="admin-image-actions">
+              <button
+                className="secondary"
+                type="button"
+                disabled={uploading}
+                onClick={() =>
+                  inputRef.current?.click()
+                }
+              >
+                <ImagePlus />
+                Trocar foto
+              </button>
+
+              <button
+                className="secondary danger-outline"
+                type="button"
+                disabled={uploading}
+                onClick={() => onChange(null)}
+              >
+                <Trash2 />
+                Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
         <button
           className="admin-image-picker"
           type="button"
@@ -293,7 +250,7 @@ function ImageUploadField({
             <strong>
               {uploading
                 ? "Enviando imagem..."
-                : "Escolher foto do computador ou celular"}
+                : "Escolher foto da galeria"}
             </strong>
             <small>
               JPG, PNG, WEBP ou outra imagem de até
@@ -301,98 +258,6 @@ function ImageUploadField({
             </small>
           </span>
         </button>
-      ) : (
-        <div className="image-url-picker">
-          <label className="field">
-            <span>Link direto da imagem</span>
-            <input
-              type="url"
-              value={imageUrl}
-              placeholder="https://exemplo.com/foto.jpg"
-              onChange={(event) =>
-                setImageUrl(event.target.value)
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  applyImageUrl();
-                }
-              }}
-            />
-          </label>
-
-          <button
-            className="secondary"
-            type="button"
-            onClick={applyImageUrl}
-          >
-            Usar este link
-          </button>
-
-          <small>
-            Use o endereço direto do arquivo de imagem,
-            não o link de uma página.
-          </small>
-        </div>
-      )}
-
-      {value?.imageUrl && (
-        <div className="admin-image-preview">
-          <img
-            src={value.imageUrl}
-            alt="Prévia do produto"
-            onError={() =>
-              setError(
-                "Não foi possível carregar a prévia. Confira se o link aponta diretamente para uma imagem.",
-              )
-            }
-          />
-
-          <div>
-            <strong>
-              {value.imagePublicId
-                ? "Imagem enviada ao Cloudinary"
-                : "Imagem adicionada por link"}
-            </strong>
-
-            <small>
-              A imagem abaixo será usada no cardápio.
-            </small>
-
-            <div className="admin-image-actions">
-              <button
-                className="secondary"
-                type="button"
-                disabled={uploading}
-                onClick={() => {
-                  setSource("upload");
-                  inputRef.current?.click();
-                }}
-              >
-                <ImagePlus />
-                Enviar outra
-              </button>
-
-              <button
-                className="secondary"
-                type="button"
-                onClick={() => setSource("url")}
-              >
-                🔗 Trocar por link
-              </button>
-
-              <button
-                className="secondary danger-outline"
-                type="button"
-                disabled={uploading}
-                onClick={removeImage}
-              >
-                <Trash2 />
-                Remover
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {error && (
@@ -402,7 +267,6 @@ function ImageUploadField({
   );
 }
 
-/* MESA4_IMAGE_URL_AND_CHECKOUT_SUGGESTION */
 export function AdminMenuPage() {
   const client = useQueryClient();
   const [
@@ -622,8 +486,6 @@ export function AdminMenuPage() {
           soldOut: false,
           featured:
             form.get("featured") === "on",
-          suggestAtCheckout:
-            form.get("suggestAtCheckout") === "on",
           position:
             Number(form.get("position")) || 0,
         },
@@ -676,8 +538,6 @@ export function AdminMenuPage() {
             Number(form.get("position")) || 0,
           featured:
             form.get("featured") === "on",
-          suggestAtCheckout:
-            form.get("suggestAtCheckout") === "on",
           active:
             form.get("active") === "on",
           soldOut:
@@ -1116,17 +976,6 @@ export function AdminMenuPage() {
             Produto em destaque
           </label>
 
-          <label className="admin-check">
-            <input
-              name="suggestAtCheckout"
-              type="checkbox"
-            />
-            Sugerir no carrinho
-            <small>
-              Marque nas bebidas que devem aparecer no fechamento do pedido.
-            </small>
-          </label>
-
           {createProduct.error && (
             <p className="error-text">
               {createProduct.error.message}
@@ -1182,11 +1031,6 @@ export function AdminMenuPage() {
                 <strong>
                   {formatMoney(product.priceCents)}
                 </strong>
-                {product.suggestAtCheckout && (
-                  <span className="product-suggestion-badge">
-                    Sugestão no carrinho
-                  </span>
-                )}
               </div>
             </div>
 
@@ -1491,17 +1335,6 @@ export function AdminMenuPage() {
                     }
                   />
                   Destaque
-                </label>
-
-                <label className="admin-check">
-                  <input
-                    name="suggestAtCheckout"
-                    type="checkbox"
-                    defaultChecked={
-                      editingProduct.suggestAtCheckout
-                    }
-                  />
-                  Sugerir no carrinho
                 </label>
 
                 <label className="admin-check">
