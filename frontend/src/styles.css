@@ -1652,3 +1652,171 @@
   }
 }
 
+
+/* Remover item no checkout e upload da logo/capa */
+.checkout-summary-item {
+  align-items: center;
+  gap: 12px;
+}
+
+.checkout-summary-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.checkout-summary-copy > small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.checkout-summary-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 9px;
+}
+
+.checkout-summary-actions > b {
+  white-space: nowrap;
+}
+
+.checkout-remove-item {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 108, 108, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 88, 88, 0.07);
+  color: #ff9b9b;
+}
+
+.checkout-remove-item:hover {
+  border-color: rgba(255, 108, 108, 0.58);
+  background: rgba(255, 88, 88, 0.14);
+  color: #ffd1d1;
+}
+
+.checkout-remove-item svg {
+  width: 17px;
+  height: 17px;
+}
+
+.store-branding-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+  grid-column: 1 / -1;
+}
+
+.store-image-field {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.store-image-field-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.store-image-field-heading > span {
+  font-weight: 700;
+}
+
+.store-image-field-heading > small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.store-image-field-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.store-image-field-actions button {
+  min-height: 39px;
+}
+
+.store-image-preview {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.035) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(255, 255, 255, 0.035) 75%
+    ),
+    linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.035) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(255, 255, 255, 0.035) 75%
+    ),
+    #171511;
+  background-position:
+    0 0,
+    10px 10px;
+  background-size: 20px 20px;
+}
+
+.store-image-preview img {
+  display: block;
+  width: 100%;
+}
+
+.store-image-preview.logo {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  padding: 18px;
+}
+
+.store-image-preview.logo img {
+  max-width: 280px;
+  max-height: 130px;
+  object-fit: contain;
+}
+
+.store-image-preview.cover img {
+  aspect-ratio: 16 / 5;
+  max-height: 310px;
+  object-fit: cover;
+}
+
+@media (max-width: 620px) {
+  .checkout-summary-item {
+    align-items: flex-start;
+  }
+
+  .checkout-summary-actions {
+    display: grid;
+    justify-items: end;
+  }
+
+  .store-image-field-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .store-image-field-actions button {
+    width: 100%;
+  }
+
+  .store-image-preview.cover img {
+    aspect-ratio: 16 / 7;
+  }
+}
+

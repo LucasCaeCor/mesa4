@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bike, Search, Store } from "lucide-react";
+import { ArrowLeft, Bike, Search, Store, Trash2 } from "lucide-react";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -45,6 +45,7 @@ export function CheckoutPage() {
     clear,
     addItem,
     setOpen,
+    removeItem,
   } = useCart();
   const store = useQuery({
     queryKey: ["store"],
@@ -475,25 +476,51 @@ export function CheckoutPage() {
 
         <aside className="order-summary">
           <h2>Resumo</h2>
+          {/* MESA4_CHECKOUT_REMOVE_ITEM */}
           {items.map((item) => (
-            <div className="summary-item" key={item.key}>
-              <span>
+            <div
+              className="summary-item checkout-summary-item"
+              key={item.key}
+            >
+              <span className="checkout-summary-copy">
                 {item.quantity}x {item.productName}
                 <small>
-                  {item.options.map((option) => option.optionName).join(", ")}
+                  {item.options
+                    .map(
+                      (option) =>
+                        option.optionName,
+                    )
+                    .join(", ")}
                 </small>
               </span>
-              <b>
-                {formatMoney(
-                  (item.basePriceCents +
-                    item.options.reduce(
-                      (sum, option) =>
-                        sum + option.priceCents * option.quantity,
-                      0,
-                    )) *
-                    item.quantity,
-                )}
-              </b>
+
+              <div className="checkout-summary-actions">
+                <b>
+                  {formatMoney(
+                    (item.basePriceCents +
+                      item.options.reduce(
+                        (sum, option) =>
+                          sum +
+                          option.priceCents *
+                            option.quantity,
+                        0,
+                      )) *
+                      item.quantity,
+                  )}
+                </b>
+
+                <button
+                  className="checkout-remove-item"
+                  type="button"
+                  title="Remover item"
+                  aria-label={`Remover ${item.productName} do carrinho`}
+                  onClick={() =>
+                    removeItem(item.key)
+                  }
+                >
+                  <Trash2 />
+                </button>
+              </div>
             </div>
           ))}
 

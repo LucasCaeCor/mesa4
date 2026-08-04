@@ -1,8 +1,6 @@
 import {
-  ChangeEvent,
   FormEvent,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import {
@@ -31,175 +29,12 @@ const weekdayNames = [
   "Sábado",
 ];
 
-/* MESA4_STORE_BRANDING_UPLOAD */
-type UploadedStoreImage = {
-  imageUrl: string;
-  imagePublicId?: string;
-};
-
-type StoreImageFieldProps = {
-  name: string;
-  label: string;
-  help: string;
-  kind: "logo" | "cover";
-  value: string;
-  onChange: (value: string) => void;
-};
-
-function StoreImageField({
-  name,
-  label,
-  help,
-  kind,
-  value,
-  onChange,
-}: StoreImageFieldProps) {
-  const fileInputRef =
-    useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] =
-    useState(false);
-  const [error, setError] = useState("");
-
-  async function uploadImage(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setError("Selecione um arquivo de imagem.");
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("A imagem deve ter no máximo 5 MB.");
-      event.target.value = "";
-      return;
-    }
-
-    setUploading(true);
-    setError("");
-
-    try {
-      const body = new FormData();
-      body.append("image", file);
-
-      const uploaded =
-        await adminApi<UploadedStoreImage>(
-          "/admin/uploads/images",
-          {
-            method: "POST",
-            body,
-          },
-        );
-
-      onChange(uploaded.imageUrl);
-    } catch (uploadError) {
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "Não foi possível enviar a imagem.",
-      );
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
-  }
-
-  return (
-    <div
-      className={`store-image-field ${kind}`}
-    >
-      <div className="store-image-field-heading">
-        <span>{label}</span>
-        <small>{help}</small>
-      </div>
-
-      <input
-        name={name}
-        type="url"
-        value={value}
-        placeholder="https://..."
-        onChange={(event) => {
-          setError("");
-          onChange(event.target.value);
-        }}
-      />
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={uploadImage}
-      />
-
-      <div className="store-image-field-actions">
-        <button
-          className="secondary"
-          type="button"
-          disabled={uploading}
-          onClick={() =>
-            fileInputRef.current?.click()
-          }
-        >
-          {uploading
-            ? "Enviando imagem..."
-            : "Escolher arquivo"}
-        </button>
-
-        {value && (
-          <button
-            className="secondary danger-outline"
-            type="button"
-            disabled={uploading}
-            onClick={() => {
-              setError("");
-              onChange("");
-            }}
-          >
-            Remover imagem
-          </button>
-        )}
-      </div>
-
-      {value && (
-        <div
-          className={`store-image-preview ${kind}`}
-        >
-          <img
-            src={value}
-            alt={`Prévia: ${label}`}
-            onError={() =>
-              setError(
-                "Não foi possível carregar a imagem. Confira o link ou envie outro arquivo.",
-              )
-            }
-          />
-        </div>
-      )}
-
-      {error && (
-        <p className="error-text">{error}</p>
-      )}
-    </div>
-  );
-}
-
 export function AdminSettingsPage() {
   const client = useQueryClient();
   const [pixPaymentMode, setPixPaymentMode] =
     useState<"MERCADO_PAGO" | "MANUAL">(
       "MERCADO_PAGO",
     );
-  const [logoUrl, setLogoUrl] =
-    useState("");
-  const [heroImageUrl, setHeroImageUrl] =
-    useState("");
 
   const settings = useQuery({
     queryKey: ["admin-settings"],
@@ -213,18 +48,6 @@ export function AdminSettingsPage() {
         "MERCADO_PAGO",
     );
   }, [settings.data?.pixPaymentMode]);
-
-  useEffect(() => {
-    setLogoUrl(
-      settings.data?.logoUrl ?? "",
-    );
-    setHeroImageUrl(
-      settings.data?.heroImageUrl ?? "",
-    );
-  }, [
-    settings.data?.logoUrl,
-    settings.data?.heroImageUrl,
-  ]);
 
   const hours = useQuery({
     queryKey: ["admin-hours"],
@@ -271,8 +94,9 @@ export function AdminSettingsPage() {
       ).replace(/\D/g, ""),
       instagramUrl:
         form.get("instagramUrl") || "",
-      logoUrl: logoUrl.trim(),
-      heroImageUrl: heroImageUrl.trim(),
+      logoUrl: form.get("logoUrl") || "",
+      heroImageUrl:
+        form.get("heroImageUrl") || "",
       pickupAddress:
         form.get("pickupAddress") || undefined,
       minimumOrderCents: Math.round(
@@ -513,25 +337,23 @@ export function AdminSettingsPage() {
               />
             </label>
 
-            <div className="store-branding-fields">
-              <StoreImageField
+            <label className="field">
+              <span>URL da logo</span>
+              <input
                 name="logoUrl"
-                label="Logo da loja"
-                help="Cole um link ou escolha uma imagem do computador/celular."
-                kind="logo"
-                value={logoUrl}
-                onChange={setLogoUrl}
+                type="url"
+                defaultValue={s.logoUrl}
               />
+            </label>
 
-              <StoreImageField
+            <label className="field">
+              <span>URL da capa</span>
+              <input
                 name="heroImageUrl"
-                label="Capa do cardápio"
-                help="Cole um link ou escolha o banner do computador/celular."
-                kind="cover"
-                value={heroImageUrl}
-                onChange={setHeroImageUrl}
+                type="url"
+                defaultValue={s.heroImageUrl}
               />
-            </div>
+            </label>
           </div>
 
           <section className="payment-mode-section">

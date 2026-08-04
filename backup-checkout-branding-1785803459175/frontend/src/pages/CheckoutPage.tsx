@@ -5,7 +5,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import { useCart } from "../store/cart";
-import type { StoreResponse } from "../types";
+import type {
+  MenuResponse,
+  Product,
+  StoreResponse,
+} from "../types";
+import { ProductModal } from "../components/ProductModal";
 
 type OrderResult = {
   trackingToken: string;
@@ -35,11 +40,65 @@ type DeliveryQuoteResult = {
 export function CheckoutPage() {
   const navigate = useNavigate();
   const numberInput = useRef<HTMLInputElement>(null);
-  const { items, clear } = useCart();
+  const {
+    items,
+    clear,
+    addItem,
+    setOpen,
+  } = useCart();
   const store = useQuery({
     queryKey: ["store"],
     queryFn: () => api<StoreResponse>("/store"),
   });
+
+  /* MESA4_CHECKOUT_SUGGESTIONS */
+  const menu = useQuery({
+    queryKey: ["menu"],
+    queryFn: () => api<MenuResponse>("/menu"),
+  });
+  const [
+    suggestionProduct,
+    setSuggestionProduct,
+  ] = useState<Product | null>(null);
+
+  const suggestedProducts = useMemo(() => {
+    const products =
+      menu.data?.categories.flatMap(
+        (category) => category.products,
+      ) ?? [];
+    const productsInCart = new Set(
+      items.map((item) => item.productId),
+    );
+
+    return products
+      .filter(
+        (product) =>
+          product.suggestAtCheckout &&
+          !product.soldOut &&
+          !productsInCart.has(product.id),
+      )
+      .slice(0, 4);
+  }, [items, menu.data]);
+
+  function addSuggestedProduct(
+    product: Product,
+  ) {
+    if (product.optionGroups.length > 0) {
+      setSuggestionProduct(product);
+      return;
+    }
+
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      imageUrl: product.imageUrl,
+      basePriceCents: product.priceCents,
+      quantity: 1,
+      options: [],
+    });
+
+    setOpen(false);
+  }
 
   const [fulfillment, setFulfillment] = useState<"DELIVERY" | "PICKUP">(
     "DELIVERY",
@@ -437,6 +496,55 @@ export function CheckoutPage() {
               </b>
             </div>
           ))}
+
+          {suggestedProducts.length > 0 && (
+            <section className="checkout-suggestions">
+              <div className="checkout-suggestions-heading">
+                <small>Que tal uma bebida?</small>
+                <h3>Complete seu pedido</h3>
+              </div>
+
+              <div className="checkout-suggestion-list">
+                {suggestedProducts.map((product) => (
+                  <article
+                    className="checkout-suggestion-item"
+                    key={product.id}
+                  >
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                      />
+                    ) : (
+                      <div className="checkout-suggestion-placeholder">
+                        🥤
+                      </div>
+                    )}
+
+                    <div className="checkout-suggestion-info">
+                      <strong>{product.name}</strong>
+                      <span>
+                        {formatMoney(product.priceCents)}
+                      </span>
+                    </div>
+
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() =>
+                        addSuggestedProduct(product)
+                      }
+                    >
+                      {product.optionGroups.length > 0
+                        ? "Escolher"
+                        : "+ Adicionar"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
           <hr />
           <div>
             <span>Subtotal</span>
@@ -485,6 +593,19 @@ export function CheckoutPage() {
           </button>
         </aside>
       </form>
+
+      {suggestionProduct && (
+        <ProductModal
+          product={suggestionProduct}
+          onClose={() => {
+            setSuggestionProduct(null);
+            window.setTimeout(
+              () => setOpen(false),
+              0,
+            );
+          }}
+        />
+      )}
     </main>
   );
 }
