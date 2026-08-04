@@ -575,69 +575,6 @@ export function AdminMenuPage() {
     );
   }
 
-  /* MESA4_CATEGORY_MANAGEMENT */
-  function editCategory(category: Category) {
-    const name = window
-      .prompt(
-        "Nome da categoria",
-        category.name,
-      )
-      ?.trim();
-
-    if (!name) {
-      return;
-    }
-
-    const positionInput = window.prompt(
-      "Posição da categoria",
-      String(category.position),
-    );
-
-    if (positionInput === null) {
-      return;
-    }
-
-    const position = Number(positionInput);
-
-    if (
-      !Number.isInteger(position) ||
-      position < 0
-    ) {
-      window.alert(
-        "Informe uma posição inteira igual ou maior que zero.",
-      );
-      return;
-    }
-
-    patch.mutate({
-      path: `/admin/categories/${category.id}`,
-      body: {
-        name,
-        position,
-      },
-    });
-  }
-
-  function toggleCategory(category: Category) {
-    if (
-      category.active &&
-      !window.confirm(
-        `Desativar a categoria "${category.name}"?\n\n` +
-          "Os produtos vinculados deixarão de aparecer " +
-          "no cardápio do cliente, mas não serão excluídos.",
-      )
-    ) {
-      return;
-    }
-
-    patch.mutate({
-      path: `/admin/categories/${category.id}`,
-      body: {
-        active: !category.active,
-      },
-    });
-  }
-
   function addonSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -1023,96 +960,6 @@ export function AdminMenuPage() {
         </div>
       </section>
 
-      <section className="category-management-section">
-        <div className="section-title">
-          <div>
-            <small>
-              Edite ou controle a visibilidade
-            </small>
-            <h2>Categorias cadastradas</h2>
-          </div>
-
-          <span>
-            {categories.data?.length ?? 0} categorias
-          </span>
-        </div>
-
-        <div className="category-management-list">
-          {categories.isLoading && (
-            <p>Carregando categorias...</p>
-          )}
-
-          {categories.data?.length === 0 && (
-            <div className="category-management-empty">
-              Nenhuma categoria cadastrada.
-            </div>
-          )}
-
-          {categories.data?.map((category) => {
-            const productCount =
-              products.data?.filter(
-                (product) =>
-                  product.categoryId === category.id,
-              ).length ?? 0;
-
-            return (
-              <article
-                className={`category-management-item ${
-                  category.active ? "" : "inactive"
-                }`}
-                key={category.id}
-              >
-                <span className="category-status-dot" />
-
-                <div className="category-management-info">
-                  <strong>{category.name}</strong>
-                  <small>
-                    {productCount === 1
-                      ? "1 produto"
-                      : `${productCount} produtos`}
-                    {" · "}
-                    posição {category.position}
-                  </small>
-                </div>
-
-                <span className="category-visibility-chip">
-                  {category.active
-                    ? "Visível no cardápio"
-                    : "Desativada"}
-                </span>
-
-                <div className="category-management-actions">
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={patch.isPending}
-                    onClick={() =>
-                      editCategory(category)
-                    }
-                  >
-                    <Pencil />
-                    Editar
-                  </button>
-
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={patch.isPending}
-                    onClick={() =>
-                      toggleCategory(category)
-                    }
-                  >
-                    {category.active
-                      ? "Desativar"
-                      : "Ativar"}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="admin-form-grid">
         <form
           className="admin-form"
@@ -1167,8 +1014,6 @@ export function AdminMenuPage() {
                     value={category.id}
                   >
                     {category.name}
-                    {!category.active &&
-                      " (desativada)"}
                   </option>
                 ),
               )}
@@ -1520,9 +1365,7 @@ export function AdminMenuPage() {
                         value={category.id}
                       >
                         {category.name}
-                    {!category.active &&
-                      " (desativada)"}
-                  </option>
+                      </option>
                     ),
                   )}
                 </select>
