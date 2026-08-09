@@ -36,7 +36,6 @@ export async function registerSecurity(app: FastifyInstance) {
     "Authorization",
     "X-Idempotency-Key",
   "X-Pix-Authorization",
-  "X-Catalog-Authorization",
   ],
 });
   await app.register(rateLimit, {

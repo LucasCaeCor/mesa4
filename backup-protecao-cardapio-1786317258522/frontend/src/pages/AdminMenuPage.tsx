@@ -18,7 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { AdminNav } from "../components/AdminNav";
-import { CatalogSecurityPanel } from "../components/CatalogSecurityPanel";
 import { adminApi } from "../lib/api";
 import { formatMoney } from "../lib/format";
 
@@ -406,53 +405,6 @@ function ImageUploadField({
 /* MESA4_IMAGE_URL_AND_CHECKOUT_SUGGESTION */
 export function AdminMenuPage() {
   const client = useQueryClient();
-  /* MESA4_CATALOG_TOTP_PROTECTION_V1 */
-  const [
-    catalogAuthorization,
-    setCatalogAuthorization,
-  ] = useState("");
-
-  const catalogHeaders =
-    catalogAuthorization
-      ? {
-          "X-Catalog-Authorization":
-            catalogAuthorization,
-        }
-      : undefined;
-
-  function needsCatalogHeader(
-    path: string,
-    body?: unknown,
-  ) {
-    const data =
-      typeof body === "object" &&
-      body !== null
-        ? body as Record<string, unknown>
-        : {};
-
-    if (
-      /^\/admin\/products\/[^/]+$/.test(path) &&
-      "priceCents" in data
-    ) {
-      return true;
-    }
-
-    if (
-      /^\/admin\/addons\/[^/]+$/.test(path) &&
-      "priceCents" in data
-    ) {
-      return true;
-    }
-
-    if (
-      /^\/admin\/options\/[^/]+$/.test(path) &&
-      "priceCents" in data
-    ) {
-      return true;
-    }
-
-    return false;
-  }
   const [
     editingProduct,
     setEditingProduct,
@@ -512,7 +464,6 @@ export function AdminMenuPage() {
     mutationFn: (body: unknown) =>
       adminApi("/admin/addons", {
         method: "POST",
-        headers: catalogHeaders,
         body: JSON.stringify(body),
       }),
     onSuccess: refresh,
@@ -522,13 +473,6 @@ export function AdminMenuPage() {
     mutationFn: ({ path, body }: PatchInput) =>
       adminApi(path, {
         method: "PATCH",
-        headers:
-          needsCatalogHeader(
-            path,
-            body,
-          )
-            ? catalogHeaders
-            : undefined,
         body: JSON.stringify(body),
       }),
     onSuccess: refresh,
@@ -538,12 +482,6 @@ export function AdminMenuPage() {
     mutationFn: (path: string) =>
       adminApi(path, {
         method: "DELETE",
-        headers:
-          /^\/admin\/(products|addons|options)\/[^/]+$/.test(
-            path,
-          )
-            ? catalogHeaders
-            : undefined,
       }),
     onSuccess: refresh,
   });
@@ -552,10 +490,6 @@ export function AdminMenuPage() {
     mutationFn: ({ path, body }: PatchInput) =>
       adminApi(path, {
         method: "POST",
-        headers:
-          /\/options$/.test(path)
-            ? catalogHeaders
-            : undefined,
         body: JSON.stringify(body),
       }),
     onSuccess: refresh,
@@ -571,7 +505,6 @@ export function AdminMenuPage() {
         "/admin/products",
         {
           method: "POST",
-          headers: catalogHeaders,
           body: JSON.stringify(product),
         },
       );
@@ -601,7 +534,6 @@ export function AdminMenuPage() {
     }: EditProductMutationInput) => {
       await adminApi(`/admin/products/${id}`, {
         method: "PATCH",
-        headers: catalogHeaders,
         body: JSON.stringify(product),
       });
 
@@ -945,12 +877,6 @@ export function AdminMenuPage() {
           <h1>Cardápio</h1>
         </div>
       </header>
-
-      <CatalogSecurityPanel
-        onAuthorization={
-          setCatalogAuthorization
-        }
-      />
 
       <section className="addon-library-section">
         <div className="section-title">
