@@ -46,10 +46,18 @@ export function requireCatalogAuthorization(
   app: FastifyInstance,
   request: FastifyRequest,
 ) {
-  const raw =
+  const catalogRaw =
     request.headers[
       "x-catalog-authorization"
     ];
+
+  const adminRaw =
+    request.headers[
+      "x-admin-authorization"
+    ];
+
+  const raw =
+    adminRaw || catalogRaw;
 
   const token = Array.isArray(raw)
     ? raw[0]
@@ -69,9 +77,15 @@ export function requireCatalogAuthorization(
         token,
       );
 
+    const validScope =
+      payload.scope ===
+        "CATALOG_SENSITIVE_WRITE" ||
+      payload.scope ===
+        "ADMIN_SENSITIVE_WRITE";
+
     if (
       payload.sub !== request.user.sub ||
-      payload.scope !== CATALOG_SCOPE ||
+      !validScope ||
       payload.kind !== "STEP_UP"
     ) {
       throw new Error(
@@ -81,7 +95,7 @@ export function requireCatalogAuthorization(
   } catch {
     throw new HttpError(
       403,
-      "A autorização do cardápio expirou ou é inválida",
+      "A autorização do Authenticator expirou ou é inválida",
       "CATALOG_AUTHORIZATION_INVALID",
     );
   }
