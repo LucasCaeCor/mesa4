@@ -9,6 +9,7 @@ import {
   uploadProductImage,
 } from "../lib/cloudinary.js";
 import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
+import { requirePixAuthorizationForSettings } from "../modules/security/pix-security.service.js";
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
 const orderStatusSchema = z.object({
@@ -953,6 +954,22 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get("/admin/settings", { preHandler: app.authenticateAdmin }, async () => prisma.storeSettings.findUnique({ where: { singletonKey: "default" } }));
   app.put("/admin/settings", { preHandler: app.authenticateAdmin }, async (request) => {
     const input = settingsSchema.parse(request.body);
+
+    /* MESA4_PIX_TOTP_SETTINGS_GUARD */
+    const currentSettings =
+      await prisma.storeSettings.findUnique({
+        where: { singletonKey: "default" },
+      });
+
+    await requirePixAuthorizationForSettings({
+      adminId: request.user.sub,
+      token:
+        request.headers[
+          "x-pix-authorization"
+        ],
+      currentSettings,
+      nextSettings: input,
+    });
 
     if (input.dynamicDeliveryEnabled && !input.pickupAddress?.trim()) {
       throw new HttpError(

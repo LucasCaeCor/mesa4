@@ -55,15 +55,34 @@ enum PixKeyType {
 }
 
 model AdminUser {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  email        String     @unique
-  passwordHash String
-  role         AdminRole  @default(ADMIN)
-  active       Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  auditLogs    AuditLog[]
+  id                            String                   @id @default(auto()) @map("_id") @db.ObjectId
+  name                          String
+  email                         String                   @unique
+  passwordHash                  String
+  role                          AdminRole                @default(ADMIN)
+  active                        Boolean                  @default(true)
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  pixTotpEnabled                Boolean                  @default(false)
+  pixTotpSecretEncrypted        String?
+  pixTotpPendingSecretEncrypted String?
+  pixTotpPendingExpiresAt       DateTime?
+  pixTotpLastUsedCounter        Int?
+  pixTotpRecoveryCodeHashes     Json?
+  auditLogs                     AuditLog[]
+  pixChangeAuthorizations       PixChangeAuthorization[]
+}
+
+model PixChangeAuthorization {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  adminId   String    @db.ObjectId
+  admin     AdminUser @relation(fields: [adminId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([adminId, expiresAt])
 }
 
 model Category {
@@ -78,23 +97,23 @@ model Category {
 }
 
 model Product {
-  id            String               @id @default(auto()) @map("_id") @db.ObjectId
-  categoryId    String               @db.ObjectId
-  category      Category             @relation(fields: [categoryId], references: [id])
-  name          String
-  slug          String               @unique
-  description   String?
-  priceCents    Int
-  imageUrl      String?
-  imagePublicId String?
-  featured      Boolean              @default(false)
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId        String               @db.ObjectId
+  category          Category             @relation(fields: [categoryId], references: [id])
+  name              String
+  slug              String               @unique
+  description       String?
+  priceCents        Int
+  imageUrl          String?
+  imagePublicId     String?
+  featured          Boolean              @default(false)
   suggestAtCheckout Boolean              @default(false)
-  active        Boolean              @default(true)
-  soldOut       Boolean              @default(false)
-  position      Int                  @default(0)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  optionGroups  ProductOptionGroup[]
+  active            Boolean              @default(true)
+  soldOut           Boolean              @default(false)
+  position          Int                  @default(0)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  optionGroups      ProductOptionGroup[]
 
   @@index([categoryId, active])
 }

@@ -19,6 +19,19 @@ const schema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional().default(""),
   CLOUDINARY_API_KEY: z.string().optional().default(""),
   CLOUDINARY_API_SECRET: z.string().optional().default(""),
+  PIX_TOTP_ENCRYPTION_KEY: z.string().min(1).refine(
+    (value) => {
+      try {
+        return Buffer.from(value, "base64").length === 32;
+      } catch {
+        return false;
+      }
+    },
+    {
+      message:
+        "PIX_TOTP_ENCRYPTION_KEY deve possuir 32 bytes em Base64",
+    },
+  ),
 });
 
 const parsed = schema.safeParse(process.env);

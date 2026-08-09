@@ -6,6 +6,7 @@ import { registerSecurity } from "./plugins/security.js";
 import { registerAuth } from "./plugins/auth.js";
 import { publicRoutes } from "./routes/public.routes.js";
 import { adminRoutes } from "./routes/admin.routes.js";
+import { pixSecurityRoutes } from "./routes/pix-security.routes.js";
 import { webhookRoutes } from "./routes/webhook.routes.js";
 import { HttpError } from "./lib/http-error.js";
 
@@ -13,7 +14,13 @@ export async function buildApp() {
   const app = Fastify({
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
-      redact: ["req.headers.authorization", "body.password", "body.customerDocument"],
+      redact: [
+        "req.headers.authorization",
+        "req.headers.x-pix-authorization",
+        "body.password",
+        "body.code",
+        "body.customerDocument",
+      ],
     },
     trustProxy: true,
     bodyLimit: 6 * 1024 * 1024,
@@ -31,6 +38,7 @@ export async function buildApp() {
   app.get("/health", async () => ({ ok: true, timestamp: new Date().toISOString() }));
   await app.register(publicRoutes);
   await app.register(adminRoutes);
+  await app.register(pixSecurityRoutes);
   await app.register(webhookRoutes);
 
   app.setNotFoundHandler((request, reply) => reply.code(404).send({ message: "Rota não encontrada", path: request.url }));

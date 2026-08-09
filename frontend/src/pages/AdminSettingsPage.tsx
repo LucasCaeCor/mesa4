@@ -11,6 +11,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { AdminNav } from "../components/AdminNav";
+import { PixSecurityPanel } from "../components/PixSecurityPanel";
 import { adminApi } from "../lib/api";
 import type { StoreSettings } from "../types";
 
@@ -200,6 +201,13 @@ export function AdminSettingsPage() {
     useState("");
   const [heroImageUrl, setHeroImageUrl] =
     useState("");
+  /* MESA4_PIX_TOTP_ADMIN_UI */
+  const [
+    pixAuthorization,
+    setPixAuthorization,
+  ] = useState("");
+  const pixUnlocked =
+    pixAuthorization.length > 0;
 
   const settings = useQuery({
     queryKey: ["admin-settings"],
@@ -236,12 +244,20 @@ export function AdminSettingsPage() {
     mutationFn: (body: unknown) =>
       adminApi("/admin/settings", {
         method: "PUT",
+        headers: pixAuthorization
+          ? {
+              "X-Pix-Authorization":
+                pixAuthorization,
+            }
+          : undefined,
         body: JSON.stringify(body),
       }),
-    onSuccess: () =>
-      client.invalidateQueries({
+    onSuccess: () => {
+      setPixAuthorization("");
+      return client.invalidateQueries({
         queryKey: ["admin-settings"],
-      }),
+      });
+    },
   });
 
   const saveHours = useMutation({
@@ -304,20 +320,37 @@ export function AdminSettingsPage() {
       ),
       acceptingOrders:
         form.get("acceptingOrders") === "on",
-      pixEnabled:
-        form.get("pixEnabled") === "on",
-      pixPaymentMode,
-      manualPixKeyType:
-        form.get("manualPixKeyType") ||
-        undefined,
-      manualPixKey:
-        form.get("manualPixKey") || undefined,
-      manualPixReceiverName:
-        form.get("manualPixReceiverName") ||
-        undefined,
-      manualPixReceiverCity:
-        form.get("manualPixReceiverCity") ||
-        undefined,
+      pixEnabled: pixUnlocked
+        ? form.get("pixEnabled") === "on"
+        : settings.data?.pixEnabled ?? false,
+      pixPaymentMode: pixUnlocked
+        ? pixPaymentMode
+        : settings.data?.pixPaymentMode ??
+          "MERCADO_PAGO",
+      manualPixKeyType: pixUnlocked
+        ? form.get("manualPixKeyType") ||
+          undefined
+        : settings.data?.manualPixKeyType ??
+          undefined,
+      manualPixKey: pixUnlocked
+        ? form.get("manualPixKey") ||
+          undefined
+        : settings.data?.manualPixKey ??
+          undefined,
+      manualPixReceiverName: pixUnlocked
+        ? form.get(
+            "manualPixReceiverName",
+          ) || undefined
+        : settings.data
+            ?.manualPixReceiverName ??
+          undefined,
+      manualPixReceiverCity: pixUnlocked
+        ? form.get(
+            "manualPixReceiverCity",
+          ) || undefined
+        : settings.data
+            ?.manualPixReceiverCity ??
+          undefined,
       whatsappConfirmation: true,
       whatsappNotificationsEnabled: false,
     });
@@ -534,7 +567,20 @@ export function AdminSettingsPage() {
             </div>
           </div>
 
-          <section className="payment-mode-section">
+          <PixSecurityPanel
+            onAuthorization={
+              setPixAuthorization
+            }
+          />
+
+          <section
+            className={`payment-mode-section ${
+              pixUnlocked
+                ? "pix-unlocked"
+                : "pix-locked"
+            }`}
+            aria-disabled={!pixUnlocked}
+          >
             <h2>Recebimento por Pix</h2>
             <p>
               Escolha se o sistema confirma o
@@ -554,6 +600,7 @@ export function AdminSettingsPage() {
                 <input
                   type="radio"
                   name="pixPaymentMode"
+                  disabled={!pixUnlocked}
                   value="MERCADO_PAGO"
                   checked={
                     pixPaymentMode ===
@@ -584,6 +631,7 @@ export function AdminSettingsPage() {
                 <input
                   type="radio"
                   name="pixPaymentMode"
+                  disabled={!pixUnlocked}
                   value="MANUAL"
                   checked={
                     pixPaymentMode === "MANUAL"
@@ -609,6 +657,7 @@ export function AdminSettingsPage() {
                   <span>Tipo da chave</span>
                   <select
                     name="manualPixKeyType"
+                    disabled={!pixUnlocked}
                     defaultValue={
                       s.manualPixKeyType ??
                       "RANDOM"
@@ -637,6 +686,7 @@ export function AdminSettingsPage() {
                   <span>Chave Pix</span>
                   <input
                     name="manualPixKey"
+                    disabled={!pixUnlocked}
                     defaultValue={
                       s.manualPixKey ?? ""
                     }
@@ -648,6 +698,7 @@ export function AdminSettingsPage() {
                   <span>Nome do recebedor</span>
                   <input
                     name="manualPixReceiverName"
+                    disabled={!pixUnlocked}
                     maxLength={25}
                     defaultValue={
                       s.manualPixReceiverName ??
@@ -661,6 +712,7 @@ export function AdminSettingsPage() {
                   <span>Cidade do recebedor</span>
                   <input
                     name="manualPixReceiverCity"
+                    disabled={!pixUnlocked}
                     maxLength={15}
                     defaultValue={
                       s.manualPixReceiverCity ??
@@ -706,6 +758,7 @@ export function AdminSettingsPage() {
             <label>
               <input
                 name="pixEnabled"
+                disabled={!pixUnlocked}
                 type="checkbox"
                 defaultChecked={s.pixEnabled}
               />{" "}
