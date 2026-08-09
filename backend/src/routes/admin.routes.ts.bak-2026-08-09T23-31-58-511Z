@@ -10,6 +10,7 @@ import {
 } from "../lib/cloudinary.js";
 import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
 import { requirePixAuthorizationForSettings } from "../modules/security/pix-security.service.js";
+import { requireCatalogAuthorization } from "../modules/security/catalog-security.service.js";
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
 const orderStatusSchema = z.object({
@@ -236,7 +237,7 @@ async function audit(request: any, action: string, entity: string, entityId?: st
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  app.post("/admin/auth/login", { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } }, async (request) => {
+  app.post("/admin/auth/login", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request) => {
     const input = loginSchema.parse(request.body);
     const admin = await prisma.adminUser.findUnique({ where: { email: input.email.toLowerCase() } });
     if (!admin || !admin.active || !(await bcrypt.compare(input.password, admin.passwordHash))) {
@@ -511,6 +512,7 @@ export async function adminRoutes(app: FastifyInstance) {
     { preHandler: app.authenticateAdmin },
     async (request, reply) => {
       const input = addonSchema.parse(request.body);
+      requireCatalogAuthorization(app, request);
       const addon =
         await prisma.addonLibraryItem.create({
           data: {
@@ -542,6 +544,9 @@ export async function adminRoutes(app: FastifyInstance) {
         .parse(request.params);
       const input =
         addonSchema.partial().parse(request.body);
+      if (input.priceCents !== undefined) {
+        requireCatalogAuthorization(app, request);
+      }
 
       const addon =
         await prisma.addonLibraryItem.update({
@@ -590,6 +595,8 @@ export async function adminRoutes(app: FastifyInstance) {
         .object({ id: z.string() })
         .parse(request.params);
 
+      requireCatalogAuthorization(app, request);
+
       await prisma.productOption.deleteMany({
         where: { addonLibraryId: id },
       });
@@ -634,6 +641,8 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get("/admin/products", { preHandler: app.authenticateAdmin }, async () => prisma.product.findMany({ orderBy: [{ position: "asc" }, { createdAt: "desc" }], include: { category: true, optionGroups: { include: { options: true } } } }));
   app.post("/admin/products", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const input = productSchema.parse(request.body);
+    /* MESA4_CATALOG_TOTP_PROTECTION_V1 */
+    requireCatalogAuthorization(app, request);
     const product = await prisma.product.create({ data: {
       ...input,
       imageUrl: input.imageUrl || undefined,
@@ -646,6 +655,9 @@ export async function adminRoutes(app: FastifyInstance) {
   app.patch("/admin/products/:id", { preHandler: app.authenticateAdmin }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const input = productSchema.partial().parse(request.body);
+    if (input.priceCents !== undefined) {
+      requireCatalogAuthorization(app, request);
+    }
     const product = await prisma.product.update({ where: { id }, data: { ...input, ...(input.imageUrl !== undefined
       ? { imageUrl: input.imageUrl || null }
       : {}),
@@ -660,6 +672,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
   app.delete("/admin/products/:id", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    requireCatalogAuthorization(app, request);
     const groups = await prisma.productOptionGroup.findMany({ where: { productId: id }, select: { id: true } });
     await prisma.productOption.deleteMany({ where: { groupId: { in: groups.map((group) => group.id) } } });
     await prisma.productOptionGroup.deleteMany({ where: { productId: id } });
@@ -923,6 +936,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.post("/admin/option-groups/:groupId/options", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { groupId } = z.object({ groupId: z.string() }).parse(request.params);
     const input = optionSchema.parse(request.body);
+    requireCatalogAuthorization(app, request);
     const option = await prisma.productOption.create({ data: { groupId, ...input } });
     await audit(request, "CREATE", "OPTION", option.id, input);
     return reply.code(201).send(option);
@@ -930,12 +944,16 @@ export async function adminRoutes(app: FastifyInstance) {
   app.patch("/admin/options/:id", { preHandler: app.authenticateAdmin }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const input = optionSchema.partial().parse(request.body);
+    if (input.priceCents !== undefined) {
+      requireCatalogAuthorization(app, request);
+    }
     const option = await prisma.productOption.update({ where: { id }, data: input });
     await audit(request, "UPDATE", "OPTION", id, input);
     return option;
   });
   app.delete("/admin/options/:id", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    requireCatalogAuthorization(app, request);
     await prisma.productOption.delete({ where: { id } });
     await audit(request, "DELETE", "OPTION", id);
     return reply.code(204).send();

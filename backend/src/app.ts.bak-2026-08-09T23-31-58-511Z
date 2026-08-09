@@ -7,6 +7,7 @@ import { registerAuth } from "./plugins/auth.js";
 import { publicRoutes } from "./routes/public.routes.js";
 import { adminRoutes } from "./routes/admin.routes.js";
 import { pixSecurityRoutes } from "./routes/pix-security.routes.js";
+import { catalogSecurityRoutes } from "./routes/catalog-security.routes.js";
 import { webhookRoutes } from "./routes/webhook.routes.js";
 import { HttpError } from "./lib/http-error.js";
 
@@ -17,6 +18,7 @@ export async function buildApp() {
       redact: [
         "req.headers.authorization",
         "req.headers.x-pix-authorization",
+        "req.headers.x-catalog-authorization",
         "body.password",
         "body.code",
         "body.customerDocument",
@@ -39,6 +41,7 @@ export async function buildApp() {
   await app.register(publicRoutes);
   await app.register(adminRoutes);
   await app.register(pixSecurityRoutes);
+  await app.register(catalogSecurityRoutes);
   await app.register(webhookRoutes);
 
   app.setNotFoundHandler((request, reply) => reply.code(404).send({ message: "Rota não encontrada", path: request.url }));

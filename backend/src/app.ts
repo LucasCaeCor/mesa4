@@ -18,6 +18,8 @@ export async function buildApp() {
       redact: [
         "req.headers.authorization",
         "req.headers.x-pix-authorization",
+        "req.headers.x-admin-authorization",
+        "req.headers.x-catalog-authorization",
         "req.headers.x-catalog-authorization",
         "body.password",
         "body.code",

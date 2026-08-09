@@ -10,6 +10,7 @@ import {
 } from "../lib/cloudinary.js";
 import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
 import { requirePixAuthorizationForSettings } from "../modules/security/pix-security.service.js";
+import { requireAdminStepUpAuthorization } from "../modules/security/admin-stepup-security.service.js";
 import { requireCatalogAuthorization } from "../modules/security/catalog-security.service.js";
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
@@ -237,6 +238,48 @@ async function audit(request: any, action: string, entity: string, entityId?: st
 }
 
 export async function adminRoutes(app: FastifyInstance) {
+  /* MESA4_ADMIN_STEP_UP_GUARD_V1
+     Proteção REAL no backend. Mesmo que alguém use DevTools/Postman
+     com o JWT de admin, as rotas abaixo exigem um segundo token,
+     emitido somente após senha + Authenticator. */
+  app.addHook("preHandler", async (request) => {
+    const method = request.method.toUpperCase();
+
+    if (
+      method !== "POST" &&
+      method !== "PUT" &&
+      method !== "PATCH" &&
+      method !== "DELETE"
+    ) {
+      return;
+    }
+
+    const pathname =
+      request.url.split("?")[0];
+
+    const sensitive =
+      /^\/admin\/orders\/[^/]+\/status$/.test(
+        pathname,
+      ) ||
+      pathname.startsWith("/admin/uploads/") ||
+      pathname.startsWith("/admin/addons") ||
+      pathname.startsWith("/admin/categories") ||
+      pathname.startsWith("/admin/products") ||
+      pathname.startsWith("/admin/delivery-zones") ||
+      pathname.startsWith("/admin/option-groups") ||
+      pathname.startsWith("/admin/options") ||
+      pathname === "/admin/business-hours";
+
+    if (!sensitive) {
+      return;
+    }
+
+    await requireAdminStepUpAuthorization(
+      app,
+      request,
+    );
+  });
+
   app.post("/admin/auth/login", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request) => {
     const input = loginSchema.parse(request.body);
     const admin = await prisma.adminUser.findUnique({ where: { email: input.email.toLowerCase() } });

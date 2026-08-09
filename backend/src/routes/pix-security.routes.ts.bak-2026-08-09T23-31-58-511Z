@@ -20,9 +20,6 @@ import {
 import {
   createPixChangeAuthorization,
 } from "../modules/security/pix-security.service.js";
-import {
-  createAdminStepUpAuthorization,
-} from "../modules/security/admin-stepup-security.service.js";
 
 const passwordSchema = z.object({
   password: z
@@ -619,57 +616,4 @@ export async function pixSecurityRoutes(
       };
     },
   );
-  app.post(
-    "/admin/security/admin/unlock",
-    {
-      preHandler: app.authenticateAdmin,
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: "15 minutes",
-        },
-      },
-    },
-    async (request) => {
-      const input =
-        unlockSchema.parse(request.body);
-
-      const admin =
-        await getAdminWithPassword(
-          request,
-          input.password,
-        );
-
-      const method =
-        await verifySecondFactor(
-          admin,
-          input.code,
-        );
-
-      const authorization =
-        createAdminStepUpAuthorization(
-          app,
-          admin.id,
-        );
-
-      await auditSecurity(
-        request,
-        "ADMIN_SENSITIVE_ACTIONS_UNLOCKED",
-        {
-          method,
-          expiresAt:
-            authorization.expiresAt,
-        },
-      );
-
-      return {
-        token: authorization.token,
-        expiresAt:
-          authorization.expiresAt.toISOString(),
-        expiresInSeconds:
-          authorization.expiresInSeconds,
-      };
-    },
-  );
-
 }
