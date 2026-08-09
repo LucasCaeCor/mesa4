@@ -2151,7 +2151,7 @@
   .hero h1 {
     max-width: 340px;
     margin: 13px 0 9px;
-    font-size: clamp(24px, 10.5vw, 30px);
+    font-size: clamp(16px, 10.5vw, 20px);
     line-height: 0.94;
     letter-spacing: -0.02em;
   }
@@ -2186,7 +2186,7 @@
   }
 
   .hero-content {
-    min-height: 310px;
+    min-height: 200px;
     padding: 42px 13px 30px;
   }
 
