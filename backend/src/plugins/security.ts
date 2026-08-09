@@ -31,13 +31,14 @@ export async function registerSecurity(app: FastifyInstance) {
 
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Idempotency-Key",
+ allowedHeaders: [
+  "Content-Type",
+  "Authorization",
+  "X-Idempotency-Key",
   "X-Pix-Authorization",
+  "X-Admin-Authorization",
   "X-Catalog-Authorization",
-  ],
+],
 });
   await app.register(rateLimit, {
     max: 150,

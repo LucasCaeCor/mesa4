@@ -16,6 +16,8 @@ export async function buildApp() {
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
       redact: [
+        "req.headers.x-admin-authorization",
+"req.headers.x-catalog-authorization",
         "req.headers.authorization",
         "req.headers.x-pix-authorization",
         "req.headers.x-admin-authorization",
