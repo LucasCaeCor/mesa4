@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AdminNav } from "../components/AdminNav";
-import { CatalogSecurityPanel } from "../components/CatalogSecurityPanel";
 import { adminApi } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import type { OrderStatus } from "../types";
@@ -494,9 +493,6 @@ export function AdminDashboardPage() {
           </button>
         </div>
       </header>
-
-      {/* MESA4_ADMIN_SECURITY_PANEL_ORDERS_V1 */}
-      <CatalogSecurityPanel />
 
       {newOrderAlert.latestOrder && (
         <section
