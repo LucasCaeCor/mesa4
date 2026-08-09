@@ -28,7 +28,29 @@ export function MenuPage() {
     store.data?.availability.isOpen ?? false;
 
   return <main>
-    <header className="hero" style={settings?.heroImageUrl ? { backgroundImage: `url(${settings.heroImageUrl})` } : undefined}>
+    <header
+      className={`hero ${
+        settings?.heroImageUrl
+          ? "hero-with-banner"
+          : ""
+      }`}
+      style={
+        settings?.heroImageUrl
+          ? {
+              backgroundImage:
+                `url(${settings.heroImageUrl})`,
+            }
+          : undefined
+      }
+    >
+      {settings?.heroImageUrl && (
+        <img
+          className="hero-banner-fit"
+          src={settings.heroImageUrl}
+          alt=""
+          aria-hidden="true"
+        />
+      )}
       <nav><div className="brand">{settings?.logoUrl ? <img src={settings.logoUrl} alt="" /> : <span>M4</span>}<strong>{settings?.storeName ?? "Mesa IV Burgers"}</strong></div><div className="nav-actions">{settings?.instagramUrl && <a className="icon-button" href={settings.instagramUrl} target="_blank" rel="noreferrer"><Instagram /></a>}<button className="cart-button" onClick={() => setOpen(true)}><ShoppingBag /><span>{totalQuantity || "Carrinho"}</span></button></div></nav>
       <div className="hero-content"><span className={`store-status ${isStoreOpen ? "open" : "closed"}`}>{isStoreOpen ? "Aceitando pedidos" : "Fechado agora"}</span><h1>Ainda tem<br /><em>LUGAR NA MESA.</em></h1><p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
     </header>
