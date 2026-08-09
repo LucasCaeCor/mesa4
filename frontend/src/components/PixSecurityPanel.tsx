@@ -43,6 +43,9 @@ export function PixSecurityPanel({
   const client = useQueryClient();
   const [setup, setSetup] =
     useState<SetupResponse | null>(null);
+  /* MESA4_PIX_TOTP_REPLACE_V2 */
+  const [replacing, setReplacing] =
+    useState(false);
   const [recoveryCodes, setRecoveryCodes] =
     useState<string[]>([]);
   const [authorizedUntil, setAuthorizedUntil] =
@@ -88,6 +91,7 @@ export function PixSecurityPanel({
       ),
     onSuccess: (data) => {
       setSetup(null);
+      setReplacing(false);
       setRecoveryCodes(
         data.recoveryCodes,
       );
@@ -98,6 +102,26 @@ export function PixSecurityPanel({
       });
     },
   });
+
+  const replaceAuthenticator =
+    useMutation({
+      mutationFn: (input: {
+        password: string;
+        code: string;
+      }) =>
+        adminApi<SetupResponse>(
+          "/admin/security/pix-totp/replace/start",
+          {
+            method: "POST",
+            body: JSON.stringify(input),
+          },
+        ),
+      onSuccess: (data) => {
+        setReplacing(true);
+        setSetup(data);
+        setRecoveryCodes([]);
+      },
+    });
 
   const unlock = useMutation({
     mutationFn: (input: {
@@ -174,6 +198,24 @@ export function PixSecurityPanel({
     confirmSetup.mutate(
       String(form.get("code")),
     );
+  }
+
+  function submitReplace(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    const form =
+      new FormData(event.currentTarget);
+
+    replaceAuthenticator.mutate({
+      password: String(
+        form.get("password"),
+      ),
+      code: String(
+        form.get("code"),
+      ),
+    });
   }
 
   function submitUnlock(
@@ -291,11 +333,19 @@ export function PixSecurityPanel({
       {setup && (
         <div className="pix-totp-setup">
           <p>
-            Escaneie o QR Code com
-            Google Authenticator,
-            Microsoft Authenticator ou
-            outro aplicativo compatível.
+            {replacing
+              ? "Peça para o novo responsável escanear este QR Code. O Authenticator atual continuará válido até a confirmação do novo código."
+              : "Escaneie o QR Code com Google Authenticator, Microsoft Authenticator ou outro aplicativo compatível."}
           </p>
+
+          {replacing && (
+            <div className="pix-replace-warning">
+              Depois que o novo código
+              for confirmado, o
+              Authenticator anterior
+              deixará de funcionar.
+            </div>
+          )}
 
           <div className="pix-totp-qr">
             <img
@@ -339,7 +389,9 @@ export function PixSecurityPanel({
             >
               {confirmSetup.isPending
                 ? "Confirmando..."
-                : "Confirmar e ativar 2FA"}
+                : replacing
+                  ? "Confirmar novo Authenticator"
+                  : "Confirmar e ativar 2FA"}
             </button>
           </form>
 
@@ -391,6 +443,7 @@ export function PixSecurityPanel({
       )}
 
       {enabled &&
+        !setup &&
         recoveryCodes.length ===
           0 && (
           <>
@@ -475,6 +528,76 @@ export function PixSecurityPanel({
                 ?.recoveryCodesRemaining ??
                 0}
             </small>
+
+            <details className="pix-authenticator-replace">
+              <summary>
+                Trocar Authenticator
+              </summary>
+
+              <p>
+                Use esta opção para
+                passar o segundo fator
+                para outro celular.
+                Confirme sua senha e o
+                Authenticator atual.
+              </p>
+
+              <form
+                className="pix-security-form unlock"
+                onSubmit={submitReplace}
+              >
+                <label className="field">
+                  <span>
+                    Senha administrativa
+                  </span>
+                  <input
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    minLength={8}
+                  />
+                </label>
+
+                <label className="field">
+                  <span>
+                    Código atual ou
+                    recuperação
+                  </span>
+                  <input
+                    name="code"
+                    autoComplete="one-time-code"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    placeholder="123456 ou recuperação"
+                    required
+                  />
+                </label>
+
+                <button
+                  className="secondary"
+                  disabled={
+                    replaceAuthenticator
+                      .isPending
+                  }
+                >
+                  {replaceAuthenticator
+                    .isPending
+                    ? "Gerando novo QR..."
+                    : "Gerar novo QR Code"}
+                </button>
+              </form>
+
+              {replaceAuthenticator
+                .error && (
+                <p className="error-text">
+                  {
+                    replaceAuthenticator
+                      .error.message
+                  }
+                </p>
+              )}
+            </details>
           </>
         )}
     </section>

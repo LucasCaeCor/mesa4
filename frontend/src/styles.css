@@ -2578,3 +2578,38 @@
   }
 }
 
+
+/* MESA4_PIX_TOTP_REPLACE_V2 */
+.pix-authenticator-replace {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 202, 91, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 202, 91, 0.04);
+}
+
+.pix-authenticator-replace summary {
+  cursor: pointer;
+  color: #ffd678;
+  font-weight: 800;
+  user-select: none;
+}
+
+.pix-authenticator-replace > p {
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pix-replace-warning {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 202, 91, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 202, 91, 0.06);
+  color: #f5d990;
+  font-size: 12px;
+  line-height: 1.45;
+}
+

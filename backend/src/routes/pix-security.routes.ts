@@ -418,6 +418,9 @@ export async function pixSecurityRoutes(
           ),
         );
 
+      const wasReplacing =
+        admin.pixTotpEnabled;
+
       await prisma.adminUser.update({
         where: {
           id: admin.id,
@@ -438,9 +441,21 @@ export async function pixSecurityRoutes(
         },
       });
 
+      await prisma.pixChangeAuthorization.updateMany({
+        where: {
+          adminId: admin.id,
+          usedAt: null,
+        },
+        data: {
+          usedAt: new Date(),
+        },
+      });
+
       await auditSecurity(
         request,
-        "PIX_TOTP_ENABLED",
+        wasReplacing
+          ? "PIX_TOTP_REPLACED"
+          : "PIX_TOTP_ENABLED",
         {
           recoveryCodesGenerated:
             recoveryCodes.length,
@@ -450,6 +465,103 @@ export async function pixSecurityRoutes(
       return {
         enabled: true,
         recoveryCodes,
+      };
+    },
+  );
+
+  /* MESA4_PIX_TOTP_REPLACE_V2 */
+  app.post(
+    "/admin/security/pix-totp/replace/start",
+    {
+      preHandler: app.authenticateAdmin,
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "15 minutes",
+        },
+      },
+    },
+    async (request) => {
+      const input =
+        unlockSchema.parse(request.body);
+
+      const admin =
+        await getAdminWithPassword(
+          request,
+          input.password,
+        );
+
+      const method =
+        await verifySecondFactor(
+          admin,
+          input.code,
+        );
+
+      const secret =
+        generateTotpSecret();
+
+      const pendingExpiresAt =
+        new Date(
+          Date.now() + 10 * 60 * 1000,
+        );
+
+      await prisma.adminUser.update({
+        where: {
+          id: admin.id,
+        },
+        data: {
+          pixTotpPendingSecretEncrypted:
+            encryptSecret(secret),
+          pixTotpPendingExpiresAt:
+            pendingExpiresAt,
+        },
+      });
+
+      // Invalida desbloqueios financeiros
+      // antigos quando a troca é iniciada.
+      await prisma.pixChangeAuthorization.updateMany({
+        where: {
+          adminId: admin.id,
+          usedAt: null,
+        },
+        data: {
+          usedAt: new Date(),
+        },
+      });
+
+      const issuer =
+        "Mesa IV Burgers";
+
+      const otpauthUri =
+        buildOtpAuthUri({
+          secret,
+          accountName: admin.email,
+          issuer,
+        });
+
+      const qrCodeDataUrl =
+        await QRCode.toDataURL(
+          otpauthUri,
+          {
+            width: 260,
+            margin: 1,
+            errorCorrectionLevel: "M",
+          },
+        );
+
+      await auditSecurity(
+        request,
+        "PIX_TOTP_REPLACEMENT_STARTED",
+        {
+          method,
+        },
+      );
+
+      return {
+        qrCodeDataUrl,
+        manualKey: secret,
+        expiresAt:
+          pendingExpiresAt.toISOString(),
       };
     },
   );
