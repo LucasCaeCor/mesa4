@@ -1841,3 +1841,231 @@
   text-align: center;
 }
 
+/* MESA4_MOBILE_PRODUCT_CARDS_V2
+   Cards compactos para cardápio em celulares.
+   Mantém o layout desktop inalterado.
+*/
+@media (max-width: 640px) {
+  .menu-container {
+    padding: 34px 14px 74px;
+  }
+
+  .category-section {
+    margin-bottom: 38px;
+    scroll-margin-top: 12px;
+  }
+
+  .section-title {
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 13px;
+    padding-bottom: 10px;
+  }
+
+  .section-title h2 {
+    font-size: 27px;
+    line-height: 1;
+  }
+
+  .section-title span {
+    flex: 0 0 auto;
+    font-size: 11px;
+  }
+
+  .product-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .product-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 94px;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 118px;
+    padding: 11px 11px 11px 14px;
+    border-radius: 15px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .product-card:hover {
+    transform: none;
+  }
+
+  .product-card:active:not(.sold-out) {
+    transform: scale(0.985);
+    border-color: #6d6257;
+    background: #211e1a;
+  }
+
+  .product-card:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+
+  .product-copy {
+    min-width: 0;
+    height: 100%;
+    justify-content: center;
+  }
+
+  .product-copy .badge {
+    margin-bottom: 5px;
+    padding: 4px 7px;
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .product-copy h3 {
+    display: -webkit-box;
+    margin: 0 0 5px;
+    overflow: hidden;
+    font-size: 19px;
+    line-height: 1.08;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .product-copy p {
+    display: -webkit-box;
+    margin: 0 0 8px;
+    overflow: hidden;
+    color: #aaa298;
+    font-size: 12px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .product-copy strong {
+    margin-top: auto;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .product-image {
+    align-self: center;
+    width: 94px;
+    height: 94px;
+    min-width: 94px;
+    min-height: 94px;
+    border-radius: 12px;
+    font-size: 38px;
+  }
+
+  .product-image img {
+    width: 94px;
+    height: 94px;
+    object-fit: cover;
+  }
+
+  .product-image b {
+    padding: 6px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .product-card:not(.sold-out)::after {
+    content: "+";
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    display: grid;
+    width: 27px;
+    height: 27px;
+    place-items: center;
+    border: 2px solid #1b1916;
+    border-radius: 50%;
+    background: #f7f2e8;
+    color: #171411;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    pointer-events: none;
+  }
+
+  .sold-out::after {
+    display: none;
+  }
+
+  .modal-body {
+    padding: 20px 16px 24px;
+  }
+
+  .modal-body h2 {
+    font-size: 27px;
+    line-height: 1.05;
+  }
+
+  .modal-image {
+    height: min(43vh, 225px);
+  }
+
+  .option-group {
+    margin: 20px 0;
+  }
+
+  .option-row {
+    min-height: 50px;
+    padding: 12px 0;
+  }
+
+  .modal-footer {
+    gap: 9px;
+    bottom: -24px;
+    padding-top: 14px;
+  }
+
+  .modal-footer .primary {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 380px) {
+  .menu-container {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+
+  .product-card {
+    grid-template-columns: minmax(0, 1fr) 84px;
+    gap: 10px;
+    min-height: 106px;
+    padding: 10px;
+  }
+
+  .product-image,
+  .product-image img {
+    width: 84px;
+    height: 84px;
+    min-width: 84px;
+    min-height: 84px;
+  }
+
+  .product-copy h3 {
+    font-size: 17px;
+  }
+
+  .product-copy p {
+    font-size: 11.5px;
+  }
+
+  .product-copy strong {
+    font-size: 15px;
+  }
+
+  .product-card:not(.sold-out)::after {
+    right: 4px;
+    bottom: 4px;
+    width: 25px;
+    height: 25px;
+  }
+}
