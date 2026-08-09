@@ -2069,3 +2069,134 @@
     height: 25px;
   }
 }
+
+/* MESA4_HERO_MOBILE_COMPACT_V1 */
+.hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(17, 16, 14, 0.82) 0%,
+      rgba(17, 16, 14, 0.56) 42%,
+      rgba(17, 16, 14, 0.26) 100%
+    );
+}
+
+.hero nav,
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    min-height: 440px;
+    background-position: center 38%;
+  }
+
+  .hero::before {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(17, 16, 14, 0.18) 0%,
+        rgba(17, 16, 14, 0.30) 34%,
+        rgba(17, 16, 14, 0.72) 100%
+      );
+  }
+
+  .hero nav {
+    height: 68px;
+    padding: 0 14px;
+  }
+
+  .brand img {
+    width: 40px;
+    height: 40px;
+  }
+
+  .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .cart-button {
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .hero-content {
+    display: flex;
+    min-height: 330px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 46px 16px 36px;
+  }
+
+  .store-status {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .hero h1 {
+    max-width: 340px;
+    margin: 13px 0 9px;
+    font-size: clamp(34px, 10.5vw, 43px);
+    line-height: 0.94;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-content > p {
+    display: -webkit-box;
+    max-width: 320px;
+    margin: 0;
+    overflow: hidden;
+    color: rgba(247, 242, 232, 0.88);
+    font-size: 13px;
+    line-height: 1.42;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .hero-info {
+    gap: 7px;
+    margin-top: 14px;
+    font-size: 12px;
+  }
+
+  .hero-info svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero {
+    min-height: 420px;
+  }
+
+  .hero-content {
+    min-height: 310px;
+    padding: 42px 13px 30px;
+  }
+
+  .hero h1 {
+    max-width: 300px;
+    font-size: 33px;
+  }
+
+  .hero-content > p {
+    max-width: 285px;
+    font-size: 12px;
+  }
+}
