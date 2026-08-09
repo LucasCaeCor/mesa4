@@ -390,13 +390,6 @@ export function AdminSettingsPage() {
         </div>
       </header>
 
-      {/* MESA4_PIX_TOTP_PANEL_OUTSIDE_FORM_V2 */}
-      <PixSecurityPanel
-        onAuthorization={
-          setPixAuthorization
-        }
-      />
-
       {s && (
         <form
           className="admin-form settings-form"
@@ -573,6 +566,13 @@ export function AdminSettingsPage() {
               />
             </div>
           </div>
+
+          <PixSecurityPanel
+            onAuthorization={
+              setPixAuthorization
+            }
+          />
+
           <section
             className={`payment-mode-section ${
               pixUnlocked
