@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminNav } from "../components/AdminNav";
+import { CatalogSecurityPanel } from "../components/CatalogSecurityPanel";
 import { adminApi } from "../lib/api";
 import { formatMoney } from "../lib/format";
 
@@ -405,7 +406,54 @@ function ImageUploadField({
 /* MESA4_IMAGE_URL_AND_CHECKOUT_SUGGESTION */
 export function AdminMenuPage() {
   const client = useQueryClient();
-    const [
+  /* MESA4_CATALOG_TOTP_PROTECTION_V1 */
+  const [
+    catalogAuthorization,
+    setCatalogAuthorization,
+  ] = useState("");
+
+  const catalogHeaders =
+    catalogAuthorization
+      ? {
+          "X-Catalog-Authorization":
+            catalogAuthorization,
+        }
+      : undefined;
+
+  function needsCatalogHeader(
+    path: string,
+    body?: unknown,
+  ) {
+    const data =
+      typeof body === "object" &&
+      body !== null
+        ? body as Record<string, unknown>
+        : {};
+
+    if (
+      /^\/admin\/products\/[^/]+$/.test(path) &&
+      "priceCents" in data
+    ) {
+      return true;
+    }
+
+    if (
+      /^\/admin\/addons\/[^/]+$/.test(path) &&
+      "priceCents" in data
+    ) {
+      return true;
+    }
+
+    if (
+      /^\/admin\/options\/[^/]+$/.test(path) &&
+      "priceCents" in data
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+  const [
     editingProduct,
     setEditingProduct,
   ] = useState<Product | null>(null);
@@ -464,7 +512,8 @@ export function AdminMenuPage() {
     mutationFn: (body: unknown) =>
       adminApi("/admin/addons", {
         method: "POST",
-body: JSON.stringify(body),
+        headers: catalogHeaders,
+        body: JSON.stringify(body),
       }),
     onSuccess: refresh,
   });
@@ -473,7 +522,14 @@ body: JSON.stringify(body),
     mutationFn: ({ path, body }: PatchInput) =>
       adminApi(path, {
         method: "PATCH",
-body: JSON.stringify(body),
+        headers:
+          needsCatalogHeader(
+            path,
+            body,
+          )
+            ? catalogHeaders
+            : undefined,
+        body: JSON.stringify(body),
       }),
     onSuccess: refresh,
   });
@@ -482,7 +538,13 @@ body: JSON.stringify(body),
     mutationFn: (path: string) =>
       adminApi(path, {
         method: "DELETE",
-}),
+        headers:
+          /^\/admin\/(products|addons|options)\/[^/]+$/.test(
+            path,
+          )
+            ? catalogHeaders
+            : undefined,
+      }),
     onSuccess: refresh,
   });
 
@@ -490,7 +552,11 @@ body: JSON.stringify(body),
     mutationFn: ({ path, body }: PatchInput) =>
       adminApi(path, {
         method: "POST",
-body: JSON.stringify(body),
+        headers:
+          /\/options$/.test(path)
+            ? catalogHeaders
+            : undefined,
+        body: JSON.stringify(body),
       }),
     onSuccess: refresh,
   });
@@ -505,7 +571,8 @@ body: JSON.stringify(body),
         "/admin/products",
         {
           method: "POST",
-body: JSON.stringify(product),
+          headers: catalogHeaders,
+          body: JSON.stringify(product),
         },
       );
 
@@ -534,7 +601,8 @@ body: JSON.stringify(product),
     }: EditProductMutationInput) => {
       await adminApi(`/admin/products/${id}`, {
         method: "PATCH",
-body: JSON.stringify(product),
+        headers: catalogHeaders,
+        body: JSON.stringify(product),
       });
 
       await adminApi(
@@ -877,7 +945,14 @@ body: JSON.stringify(product),
           <h1>Cardápio</h1>
         </div>
       </header>
-<section className="addon-library-section">
+
+      <CatalogSecurityPanel
+        onAuthorization={
+          setCatalogAuthorization
+        }
+      />
+
+      <section className="addon-library-section">
         <div className="section-title">
           <div>
             <small>Cadastre uma vez e reutilize</small>

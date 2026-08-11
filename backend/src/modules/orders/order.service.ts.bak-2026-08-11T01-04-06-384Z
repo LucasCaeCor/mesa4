@@ -2,10 +2,7 @@ import { PaymentStatus, type Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError } from "../../lib/http-error.js";
 import { createPublicOrderId, createTrackingToken, hashTrackingToken } from "../../lib/tracking.js";
-import {
-  createPixPayment,
-  getMercadoPagoPayment,
-} from "../payments/mercado-pago.service.js";
+import { createPixPayment } from "../payments/mercado-pago.service.js";
 import { createManualPixPayment } from "../payments/manual-pix.service.js";
 import { sendOrderStatusWhatsApp } from "../whatsapp/whatsapp-cloud.service.js";
 import { calculateDeliveryQuote } from "../delivery/openroute.service.js";
@@ -393,223 +390,42 @@ export async function reportManualPayment(
   );
 }
 
-export async function getOrderForCustomer(
-  publicId: string,
-  trackingToken: string,
-) {
-  let order = await prisma.order.findUnique({
-    where: {
-      publicId,
-    },
+export async function getOrderForCustomer(publicId: string, trackingToken: string) {
+  const order = await prisma.order.findUnique({
+    where: { publicId },
     include: {
-      items: {
-        include: {
-          options: true,
-        },
-      },
-      payments: {
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 1,
-      },
-      statusHistory: {
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
+      items: { include: { options: true } },
+      payments: { orderBy: { createdAt: "desc" }, take: 1 },
+      statusHistory: { orderBy: { createdAt: "asc" } },
     },
   });
-
-  if (
-    !order ||
-    hashTrackingToken(trackingToken) !==
-      order.trackingTokenHash
-  ) {
-    throw new HttpError(
-      404,
-      "Pedido não encontrado",
-      "ORDER_NOT_FOUND",
-    );
+  if (!order || hashTrackingToken(trackingToken) !== order.trackingTokenHash) {
+    throw new HttpError(404, "Pedido não encontrado", "ORDER_NOT_FOUND");
   }
-
-  const orderId = order.id;
-
-  let payment = order.payments[0];
-
-  /*
-   * O webhook continua sendo o caminho principal.
-   * Enquanto o pedido estiver aguardando pagamento,
-   * esta consulta também confere o status diretamente
-   * no Mercado Pago. Assim a tela do QR Code não fica
-   * presa caso uma notificação atrase ou falhe.
-   */
-  if (
-    order.status === "PENDING_PAYMENT" &&
-    payment?.provider === "MERCADO_PAGO" &&
-    payment.providerPaymentId
-  ) {
-    try {
-      const providerPayment =
-        await getMercadoPagoPayment(
-          payment.providerPaymentId,
-        );
-
-      const providerStatus =
-        mapPaymentStatus(
-          providerPayment.status,
-        );
-
-      if (
-        providerStatus !== payment.status ||
-        providerPayment.status_detail !==
-          payment.statusDetail
-      ) {
-        payment =
-          await prisma.payment.update({
-            where: {
-              id: payment.id,
-            },
-            data: {
-              status: providerStatus,
-              statusDetail:
-                providerPayment.status_detail,
-              rawResponse:
-                providerPayment as unknown as Prisma.InputJsonValue,
-            },
-          });
-      }
-
-      if (providerStatus === "APPROVED") {
-        // updateMany funciona como trava atômica:
-        // somente quem ainda encontrar PENDING_PAYMENT
-        // é responsável por criar o histórico/WhatsApp.
-        const promoted =
-          await prisma.order.updateMany({
-            where: {
-              id: orderId,
-              status:
-                "PENDING_PAYMENT",
-            },
-            data: {
-              status: "PAID",
-              paidAt: new Date(),
-            },
-          });
-
-        if (promoted.count === 1) {
-          await prisma.orderStatusHistory.create({
-            data: {
-              orderId: orderId,
-              status: "PAID",
-              note:
-                "Pagamento PIX aprovado",
-            },
-          });
-
-          await sendOrderStatusWhatsApp(
-            orderId,
-            {
-              source: "AUTO",
-            },
-          ).catch((error) => {
-            console.error(
-              "WhatsApp automatic notification failed",
-              {
-                orderId: orderId,
-                error,
-              },
-            );
-          });
-        }
-
-        const refreshed =
-          await prisma.order.findUnique({
-            where: {
-              id: orderId,
-            },
-            include: {
-              items: {
-                include: {
-                  options: true,
-                },
-              },
-              payments: {
-                orderBy: {
-                  createdAt: "desc",
-                },
-                take: 1,
-              },
-              statusHistory: {
-                orderBy: {
-                  createdAt: "asc",
-                },
-              },
-            },
-          });
-
-        if (refreshed) {
-          order = refreshed;
-          payment =
-            refreshed.payments[0];
-        }
-      }
-    } catch (error) {
-      // Uma indisponibilidade momentânea do Mercado Pago
-      // não deve derrubar a página do pedido. O próximo
-      // polling tenta novamente e o webhook segue ativo.
-      console.error(
-        "Falha ao reconciliar pagamento PIX",
-        {
-          publicId,
-          providerPaymentId:
-            payment.providerPaymentId,
-          error,
-        },
-      );
-    }
-  }
-
+  const payment = order.payments[0];
   return {
     trackingToken,
     order: {
       publicId: order.publicId,
-      customerName:
-        order.customerName,
-      fulfillment:
-        order.fulfillment,
+      customerName: order.customerName,
+      fulfillment: order.fulfillment,
       status: order.status,
-      subtotalCents:
-        order.subtotalCents,
-      deliveryFeeCents:
-        order.deliveryFeeCents,
-      totalCents:
-        order.totalCents,
-      createdAt:
-        order.createdAt,
+      subtotalCents: order.subtotalCents,
+      deliveryFeeCents: order.deliveryFeeCents,
+      totalCents: order.totalCents,
+      createdAt: order.createdAt,
       items: order.items,
-      statusHistory:
-        order.statusHistory,
+      statusHistory: order.statusHistory,
     },
-    payment: payment
-      ? {
-          provider:
-            payment.provider,
-          status: payment.status,
-          statusDetail:
-            payment.statusDetail,
-          reportedAt:
-            payment.reportedAt,
-          qrCode:
-            payment.qrCode,
-          qrCodeBase64:
-            payment.qrCodeBase64,
-          ticketUrl:
-            payment.ticketUrl,
-          expiresAt:
-            payment.expiresAt,
-        }
-      : null,
+    payment: payment ? {
+      provider: payment.provider,
+      status: payment.status,
+      statusDetail: payment.statusDetail,
+      reportedAt: payment.reportedAt,
+      qrCode: payment.qrCode,
+      qrCodeBase64: payment.qrCodeBase64,
+      ticketUrl: payment.ticketUrl,
+      expiresAt: payment.expiresAt,
+    } : null,
   };
 }
-

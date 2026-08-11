@@ -253,6 +253,7 @@ export function AdminSettingsPage() {
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
+      setPixAuthorization("");
       return client.invalidateQueries({
         queryKey: ["admin-settings"],
       });

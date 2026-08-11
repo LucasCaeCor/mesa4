@@ -16,7 +16,6 @@ type LoginResult = {
 type LoginInput = {
   email: string;
   password: string;
-  code: string;
   rememberEmail: boolean;
 };
 
@@ -25,7 +24,6 @@ const ADMIN_EMAIL_KEY =
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
-
   const [rememberEmail, setRememberEmail] =
     useState(
       () =>
@@ -33,7 +31,6 @@ export function AdminLoginPage() {
           ADMIN_EMAIL_KEY,
         ) !== null,
     );
-
   const [initialEmail] = useState(
     () =>
       localStorage.getItem(
@@ -42,7 +39,9 @@ export function AdminLoginPage() {
   );
 
   const mutation = useMutation({
-    mutationFn: (input: LoginInput) =>
+    mutationFn: (
+      input: LoginInput,
+    ) =>
       api<LoginResult>(
         "/admin/auth/login",
         {
@@ -50,14 +49,13 @@ export function AdminLoginPage() {
           body: JSON.stringify({
             email: input.email,
             password: input.password,
-            code:
-              input.code.trim() ||
-              undefined,
           }),
         },
       ),
-
-    onSuccess(data, variables) {
+    onSuccess(
+      data,
+      variables,
+    ) {
       sessionStorage.setItem(
         "mesa4.admin.token",
         data.token,
@@ -92,9 +90,6 @@ export function AdminLoginPage() {
       ),
       password: String(
         form.get("password") ?? "",
-      ),
-      code: String(
-        form.get("code") ?? "",
       ),
       rememberEmail,
     });
@@ -138,22 +133,6 @@ export function AdminLoginPage() {
             autoComplete="current-password"
             required
           />
-        </label>
-
-        <label className="field">
-          <span>
-            Authenticator ou recuperação
-          </span>
-          <input
-            name="code"
-            inputMode="text"
-            autoComplete="one-time-code"
-            autoCapitalize="characters"
-            placeholder="123456"
-          />
-          <small>
-            Obrigatório quando o 2FA já estiver configurado.
-          </small>
         </label>
 
         <label className="admin-remember-login">

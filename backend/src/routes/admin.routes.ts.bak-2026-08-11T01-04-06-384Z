@@ -10,17 +10,10 @@ import {
 } from "../lib/cloudinary.js";
 import { sendOrderStatusWhatsApp } from "../modules/whatsapp/whatsapp-cloud.service.js";
 import { requirePixAuthorizationForSettings } from "../modules/security/pix-security.service.js";
-import { verifySecondFactor } from "./pix-security.routes.js";
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(200),
-  code: z
-    .string()
-    .trim()
-    .min(6)
-    .max(32)
-    .optional(),
-});
+import { requireAdminStepUpAuthorization } from "../modules/security/admin-stepup-security.service.js";
+import { requireCatalogAuthorization } from "../modules/security/catalog-security.service.js";
+
+const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8).max(200) });
 const orderStatusSchema = z.object({
   status: z.enum(["PAID", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELED"]),
   note: z.string().trim().max(300).optional(),
@@ -245,79 +238,60 @@ async function audit(request: any, action: string, entity: string, entityId?: st
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  app.post(
-    "/admin/auth/login",
-    {
-      config: {
-        rateLimit: {
-          max: 8,
-          timeWindow: "15 minutes",
-        },
-      },
-    },
-    async (request) => {
-      const input = loginSchema.parse(request.body);
+  /* MESA4_ADMIN_STEP_UP_GUARD_V1
+     Proteção REAL no backend. Mesmo que alguém use DevTools/Postman
+     com o JWT de admin, as rotas abaixo exigem um segundo token,
+     emitido somente após senha + Authenticator. */
+  app.addHook("preHandler", async (request) => {
+    const method = request.method.toUpperCase();
 
-      const admin = await prisma.adminUser.findUnique({
-        where: {
-          email: input.email.toLowerCase(),
-        },
-      });
+    if (
+      method !== "POST" &&
+      method !== "PUT" &&
+      method !== "PATCH" &&
+      method !== "DELETE"
+    ) {
+      return;
+    }
 
-      if (
-        !admin ||
-        !admin.active ||
-        !(await bcrypt.compare(
-          input.password,
-          admin.passwordHash,
-        ))
-      ) {
-        throw new HttpError(
-          401,
-          "E-mail ou senha inválidos",
-          "INVALID_CREDENTIALS",
-        );
-      }
+    const pathname =
+      request.url.split("?")[0];
 
-      // Depois que o Authenticator é configurado na área PIX,
-      // ele também passa a proteger todo novo login administrativo.
-      if (admin.pixTotpEnabled) {
-        if (!input.code) {
-          throw new HttpError(
-            401,
-            "Informe o código do Authenticator para entrar",
-            "ADMIN_TOTP_REQUIRED",
-          );
-        }
+    const sensitive =
+      /^\/admin\/orders\/[^/]+\/status$/.test(
+        pathname,
+      ) ||
+      pathname.startsWith("/admin/uploads/") ||
+      pathname.startsWith("/admin/addons") ||
+      pathname.startsWith("/admin/categories") ||
+      pathname.startsWith("/admin/products") ||
+      pathname.startsWith("/admin/delivery-zones") ||
+      pathname.startsWith("/admin/option-groups") ||
+      pathname.startsWith("/admin/options") ||
+      pathname === "/admin/business-hours";
 
-        await verifySecondFactor(
-          admin,
-          input.code,
-        );
-      }
+    if (!sensitive) {
+      return;
+    }
 
-      const token = app.jwt.sign(
-        {
-          sub: admin.id,
-          email: admin.email,
-          name: admin.name,
-          role: admin.role,
-        },
-        {
-          expiresIn: "8h",
-        },
-      );
+    await requireAdminStepUpAuthorization(
+      app,
+      request,
+    );
+  });
 
-      return {
-        token,
-        admin: {
-          id: admin.id,
-          name: admin.name,
-          email: admin.email,
-        },
-      };
-    },
-  );
+  app.post("/admin/auth/login", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request) => {
+    const input = loginSchema.parse(request.body);
+    const admin = await prisma.adminUser.findUnique({ where: { email: input.email.toLowerCase() } });
+    if (!admin || !admin.active || !(await bcrypt.compare(input.password, admin.passwordHash))) {
+      throw new HttpError(401, "E-mail ou senha inválidos", "INVALID_CREDENTIALS");
+    }
+    const token = app.jwt.sign(
+      { sub: admin.id, email: admin.email, name: admin.name, role: admin.role },
+      { expiresIn: "8h" },
+    );
+    return { token, admin: { id: admin.id, name: admin.name, email: admin.email } };
+  });
 
   app.get("/admin/me", { preHandler: app.authenticateAdmin }, async (request) => ({ admin: request.user }));
 
@@ -581,6 +555,7 @@ export async function adminRoutes(app: FastifyInstance) {
     { preHandler: app.authenticateAdmin },
     async (request, reply) => {
       const input = addonSchema.parse(request.body);
+      requireCatalogAuthorization(app, request);
       const addon =
         await prisma.addonLibraryItem.create({
           data: {
@@ -613,6 +588,7 @@ export async function adminRoutes(app: FastifyInstance) {
       const input =
         addonSchema.partial().parse(request.body);
       if (input.priceCents !== undefined) {
+        requireCatalogAuthorization(app, request);
       }
 
       const addon =
@@ -662,6 +638,8 @@ export async function adminRoutes(app: FastifyInstance) {
         .object({ id: z.string() })
         .parse(request.params);
 
+      requireCatalogAuthorization(app, request);
+
       await prisma.productOption.deleteMany({
         where: { addonLibraryId: id },
       });
@@ -707,6 +685,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.post("/admin/products", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const input = productSchema.parse(request.body);
     /* MESA4_CATALOG_TOTP_PROTECTION_V1 */
+    requireCatalogAuthorization(app, request);
     const product = await prisma.product.create({ data: {
       ...input,
       imageUrl: input.imageUrl || undefined,
@@ -720,6 +699,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const input = productSchema.partial().parse(request.body);
     if (input.priceCents !== undefined) {
+      requireCatalogAuthorization(app, request);
     }
     const product = await prisma.product.update({ where: { id }, data: { ...input, ...(input.imageUrl !== undefined
       ? { imageUrl: input.imageUrl || null }
@@ -735,6 +715,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
   app.delete("/admin/products/:id", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    requireCatalogAuthorization(app, request);
     const groups = await prisma.productOptionGroup.findMany({ where: { productId: id }, select: { id: true } });
     await prisma.productOption.deleteMany({ where: { groupId: { in: groups.map((group) => group.id) } } });
     await prisma.productOptionGroup.deleteMany({ where: { productId: id } });
@@ -998,6 +979,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.post("/admin/option-groups/:groupId/options", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { groupId } = z.object({ groupId: z.string() }).parse(request.params);
     const input = optionSchema.parse(request.body);
+    requireCatalogAuthorization(app, request);
     const option = await prisma.productOption.create({ data: { groupId, ...input } });
     await audit(request, "CREATE", "OPTION", option.id, input);
     return reply.code(201).send(option);
@@ -1006,6 +988,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const input = optionSchema.partial().parse(request.body);
     if (input.priceCents !== undefined) {
+      requireCatalogAuthorization(app, request);
     }
     const option = await prisma.productOption.update({ where: { id }, data: input });
     await audit(request, "UPDATE", "OPTION", id, input);
@@ -1013,6 +996,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
   app.delete("/admin/options/:id", { preHandler: app.authenticateAdmin }, async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    requireCatalogAuthorization(app, request);
     await prisma.productOption.delete({ where: { id } });
     await audit(request, "DELETE", "OPTION", id);
     return reply.code(204).send();

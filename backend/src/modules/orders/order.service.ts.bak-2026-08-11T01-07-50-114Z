@@ -433,8 +433,6 @@ export async function getOrderForCustomer(
     );
   }
 
-  const orderId = order.id;
-
   let payment = order.payments[0];
 
   /*
@@ -487,7 +485,7 @@ export async function getOrderForCustomer(
         const promoted =
           await prisma.order.updateMany({
             where: {
-              id: orderId,
+              id: order.id,
               status:
                 "PENDING_PAYMENT",
             },
@@ -500,7 +498,7 @@ export async function getOrderForCustomer(
         if (promoted.count === 1) {
           await prisma.orderStatusHistory.create({
             data: {
-              orderId: orderId,
+              orderId: order.id,
               status: "PAID",
               note:
                 "Pagamento PIX aprovado",
@@ -508,7 +506,7 @@ export async function getOrderForCustomer(
           });
 
           await sendOrderStatusWhatsApp(
-            orderId,
+            order.id,
             {
               source: "AUTO",
             },
@@ -516,7 +514,7 @@ export async function getOrderForCustomer(
             console.error(
               "WhatsApp automatic notification failed",
               {
-                orderId: orderId,
+                orderId: order.id,
                 error,
               },
             );
@@ -526,7 +524,7 @@ export async function getOrderForCustomer(
         const refreshed =
           await prisma.order.findUnique({
             where: {
-              id: orderId,
+              id: order.id,
             },
             include: {
               items: {

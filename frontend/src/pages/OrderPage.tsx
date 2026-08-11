@@ -1,16 +1,12 @@
-import {
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Check,
   Copy,
   MessageCircle,
-  ShieldCheck,
 } from "lucide-react";
 import {
-  useParams,
   useSearchParams,
+  useParams,
 } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatMoney } from "../lib/format";
@@ -39,56 +35,71 @@ type Result = {
     }>;
   };
   payment: {
-    provider: string;
+    provider?: string;
     status: string;
-    statusDetail?: string;
-    reportedAt?: string;
     qrCode?: string;
     qrCodeBase64?: string;
     ticketUrl?: string;
   } | null;
 };
 
-const labels: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: "Aguardando pagamento",
+const labels: Record<
+  OrderStatus,
+  string
+> = {
+  PENDING_PAYMENT:
+    "Aguardando pagamento",
   PAID: "Pagamento aprovado",
   CONFIRMED: "Pedido confirmado",
   PREPARING: "Em preparo",
   READY: "Pronto",
-  OUT_FOR_DELIVERY: "Saiu para entrega",
+  OUT_FOR_DELIVERY:
+    "Saiu para entrega",
   DELIVERED: "Entregue",
   CANCELED: "Cancelado",
 };
 
 export function OrderPage() {
-  const { publicId = "" } = useParams();
-  const [search] = useSearchParams();
-  const token = search.get("token") ?? "";
+  const { publicId = "" } =
+    useParams();
+  const [search] =
+    useSearchParams();
+
+  const token =
+    search.get("token") ?? "";
 
   const order = useQuery({
-    queryKey: ["order", publicId, token],
+    queryKey: [
+      "order",
+      publicId,
+      token,
+    ],
     queryFn: () =>
       api<Result>(
-        `/orders/${publicId}?token=${encodeURIComponent(token)}`,
-      ),
-    refetchInterval: 8000,
-  });
-
-  const reportPayment = useMutation({
-    mutationFn: () =>
-      api<Result>(
-        `/orders/${publicId}/payment-reported?token=${encodeURIComponent(token)}`,
+        `/orders/${publicId}?token=${encodeURIComponent(
+          token,
+        )}`,
         {
-          method: "POST",
+          cache: "no-store",
         },
       ),
-    onSuccess: () => order.refetch(),
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   async function whatsapp() {
-    const result = await api<{ url: string }>(
-      `/orders/${publicId}/whatsapp?token=${encodeURIComponent(token)}`,
-    );
+    const result =
+      await api<{
+        url: string;
+      }>(
+        `/orders/${publicId}/whatsapp?token=${encodeURIComponent(
+          token,
+        )}`,
+        {
+          cache: "no-store",
+        },
+      );
 
     window.open(
       result.url,
@@ -97,18 +108,12 @@ export function OrderPage() {
     );
   }
 
-  async function copyPix() {
-    await navigator.clipboard.writeText(
-      order.data?.payment?.qrCode ?? "",
-    );
-
-    alert("Código PIX copiado");
-  }
-
   if (order.isLoading) {
     return (
       <div className="center-page">
-        <p>Carregando pedido...</p>
+        <p>
+          Carregando pedido...
+        </p>
       </div>
     );
   }
@@ -116,14 +121,14 @@ export function OrderPage() {
   if (!order.data) {
     return (
       <div className="center-page">
-        <h1>Pedido não encontrado</h1>
+        <h1>
+          Pedido não encontrado
+        </h1>
       </div>
     );
   }
 
   const data = order.data;
-  const isManualPix =
-    data.payment?.provider === "MANUAL_PIX";
 
   return (
     <main className="order-page">
@@ -132,24 +137,34 @@ export function OrderPage() {
           <Check />
         </div>
 
-        <small>Pedido {data.order.publicId}</small>
-        <h1>{labels[data.order.status]}</h1>
+        <small>
+          Pedido{" "}
+          {data.order.publicId}
+        </small>
+
+        <h1>
+          {labels[
+            data.order.status
+          ]}
+        </h1>
 
         <p>
-          Olá, {data.order.customerName}. Esta página
-          atualiza automaticamente.
+          Olá,{" "}
+          {data.order.customerName}.
+          Esta página atualiza
+          automaticamente.
         </p>
 
-        {data.order.status === "PENDING_PAYMENT" &&
+        {data.order.status ===
+          "PENDING_PAYMENT" &&
           data.payment && (
             <div className="pix-box">
               <h2>
-                {isManualPix
-                  ? "Pix direto para a loja"
-                  : "Pague com PIX"}
+                Pague com PIX
               </h2>
 
-              {data.payment.qrCodeBase64 && (
+              {data.payment
+                .qrCodeBase64 && (
                 <img
                   src={`data:image/png;base64,${data.payment.qrCodeBase64}`}
                   alt="QR Code PIX"
@@ -158,56 +173,20 @@ export function OrderPage() {
 
               <button
                 className="secondary"
-                type="button"
-                onClick={copyPix}
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    data.payment
+                      ?.qrCode ??
+                      "",
+                  );
+                  alert(
+                    "Código PIX copiado",
+                  );
+                }}
               >
                 <Copy />
                 Copiar código PIX
               </button>
-
-              {isManualPix ? (
-                <div className="manual-pix-customer">
-                  <p>
-                    Depois de pagar, avise a loja. O
-                    pedido só será confirmado após a
-                    conferência no aplicativo bancário.
-                  </p>
-
-                  {data.payment.reportedAt ? (
-                    <div className="manual-payment-reported">
-                      <ShieldCheck />
-                      <span>
-                        Pagamento informado. Aguardando
-                        conferência da loja.
-                      </span>
-                    </div>
-                  ) : (
-                    <button
-                      className="primary"
-                      type="button"
-                      disabled={reportPayment.isPending}
-                      onClick={() =>
-                        reportPayment.mutate()
-                      }
-                    >
-                      {reportPayment.isPending
-                        ? "Avisando a loja..."
-                        : "Já fiz o PIX"}
-                    </button>
-                  )}
-
-                  {reportPayment.error && (
-                    <p className="error-text">
-                      {reportPayment.error.message}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="pix-provider-note">
-                  A confirmação é automática pelo
-                  Mercado Pago.
-                </p>
-              )}
             </div>
           )}
 
@@ -221,7 +200,10 @@ export function OrderPage() {
                 <span
                   className={
                     index ===
-                    data.order.statusHistory.length - 1
+                    data.order
+                      .statusHistory
+                      .length -
+                      1
                       ? "active"
                       : ""
                   }
@@ -231,12 +213,20 @@ export function OrderPage() {
 
                 <div>
                   <strong>
-                    {labels[history.status]}
+                    {
+                      labels[
+                        history
+                          .status
+                      ]
+                    }
                   </strong>
+
                   <small>
                     {new Date(
                       history.createdAt,
-                    ).toLocaleString("pt-BR")}
+                    ).toLocaleString(
+                      "pt-BR",
+                    )}
                   </small>
                 </div>
               </div>
@@ -245,29 +235,40 @@ export function OrderPage() {
         </div>
 
         <div className="order-products">
-          {data.order.items.map((item) => (
-            <div key={item.id}>
-              <span>
-                {item.quantity}x {item.productName}
-                <small>
-                  {item.options
-                    .map(
-                      (option) => option.optionName,
-                    )
-                    .join(", ")}
-                </small>
-              </span>
-            </div>
-          ))}
+          {data.order.items.map(
+            (item) => (
+              <div key={item.id}>
+                <span>
+                  {item.quantity}x{" "}
+                  {
+                    item.productName
+                  }
+                  <small>
+                    {item.options
+                      .map(
+                        (
+                          option,
+                        ) =>
+                          option.optionName,
+                      )
+                      .join(", ")}
+                  </small>
+                </span>
+              </div>
+            ),
+          )}
 
           <strong>
-            Total: {formatMoney(data.order.totalCents)}
+            Total:{" "}
+            {formatMoney(
+              data.order
+                .totalCents,
+            )}
           </strong>
         </div>
 
         <button
           className="whatsapp"
-          type="button"
           onClick={whatsapp}
         >
           <MessageCircle />

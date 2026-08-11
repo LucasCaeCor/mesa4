@@ -136,27 +136,25 @@ export async function requirePixAuthorizationForSettings(
   const tokenHash =
     hashPixAuthorizationToken(token);
 
-  const authorization =
-    await prisma.pixChangeAuthorization.findUnique({
+  const consumed =
+    await prisma.pixChangeAuthorization.updateMany({
       where: {
+        adminId: input.adminId,
         tokenHash,
+        usedAt: null,
+        expiresAt: {
+          gt: now,
+        },
       },
-      select: {
-        adminId: true,
-        expiresAt: true,
-        usedAt: true,
+      data: {
+        usedAt: now,
       },
     });
 
-  if (
-    !authorization ||
-    authorization.adminId !== input.adminId ||
-    authorization.usedAt !== null ||
-    authorization.expiresAt <= now
-  ) {
+  if (consumed.count !== 1) {
     throw new HttpError(
       403,
-      "A autorização para alterar o Pix expirou ou é inválida",
+      "A autorização para alterar o Pix expirou ou já foi utilizada",
       "PIX_AUTHORIZATION_INVALID",
     );
   }
