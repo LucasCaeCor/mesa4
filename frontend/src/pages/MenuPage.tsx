@@ -52,7 +52,7 @@ export function MenuPage() {
         />
       )}
       <nav><div className="brand">{settings?.logoUrl ? <img src={settings.logoUrl} alt="" /> : <span>M4</span>}<strong>{settings?.storeName ?? "Mesa IV Burgers"}</strong></div><div className="nav-actions">{settings?.instagramUrl && <a className="icon-button" href={settings.instagramUrl} target="_blank" rel="noreferrer"><Instagram /></a>}<button className="cart-button" onClick={() => setOpen(true)}><ShoppingBag /><span>{totalQuantity || "Carrinho"}</span></button></div></nav>
-      <div className="hero-content"><span className={`store-status ${isStoreOpen ? "open" : "closed"}`}>{isStoreOpen ? "Aceitando pedidos" : "Fechado agora"}</span><h1>Ainda tem<br /><em>LUGAR NA MESA.</em></h1><p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
+      <div className="hero-content"><span className={`store-status ${isStoreOpen ? "open" : "closed"}`}>{isStoreOpen ? "Aceitando pedidos" : "Fechado agora"}</span>{/*<h1>Ainda tem<br /><em>LUGAR NA MESA.</em></h1>*/}<p>{settings?.description}</p><div className="hero-info"><Clock3 /> Preparo estimado: {settings?.defaultPrepMinutes ?? 40} min</div></div>
     </header>
     <section className="menu-container">
       {menu.isLoading && <p>Carregando cardápio...</p>}
