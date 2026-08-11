@@ -1,16 +1,12 @@
-import {
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Check,
   Copy,
   MessageCircle,
-  ShieldCheck,
 } from "lucide-react";
 import {
-  useParams,
   useSearchParams,
+  useParams,
 } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatMoney } from "../lib/format";
@@ -41,8 +37,6 @@ type Result = {
   payment: {
     provider?: string;
     status: string;
-    statusDetail?: string;
-    reportedAt?: string;
     qrCode?: string;
     qrCodeBase64?: string;
     ticketUrl?: string;
@@ -94,23 +88,6 @@ export function OrderPage() {
     refetchOnWindowFocus: true,
   });
 
-  const reportPayment =
-    useMutation({
-      mutationFn: () =>
-        api<Result>(
-          `/orders/${publicId}/payment-reported?token=${encodeURIComponent(
-            token,
-          )}`,
-          {
-            method: "POST",
-            cache: "no-store",
-          },
-        ),
-
-      onSuccess: () =>
-        order.refetch(),
-    });
-
   async function whatsapp() {
     const result =
       await api<{
@@ -129,15 +106,6 @@ export function OrderPage() {
       "_blank",
       "noopener,noreferrer",
     );
-  }
-
-  async function copyPix() {
-    await navigator.clipboard.writeText(
-      order.data?.payment?.qrCode ??
-        "",
-    );
-
-    alert("Código PIX copiado");
   }
 
   if (order.isLoading) {
@@ -161,10 +129,6 @@ export function OrderPage() {
   }
 
   const data = order.data;
-
-  const isManualPix =
-    data.payment?.provider ===
-    "MANUAL_PIX";
 
   return (
     <main className="order-page">
@@ -196,9 +160,7 @@ export function OrderPage() {
           data.payment && (
             <div className="pix-box">
               <h2>
-                {isManualPix
-                  ? "Pix direto para a loja"
-                  : "Pague com PIX"}
+                Pague com PIX
               </h2>
 
               {data.payment
@@ -211,71 +173,20 @@ export function OrderPage() {
 
               <button
                 className="secondary"
-                type="button"
-                onClick={copyPix}
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    data.payment
+                      ?.qrCode ??
+                      "",
+                  );
+                  alert(
+                    "Código PIX copiado",
+                  );
+                }}
               >
                 <Copy />
                 Copiar código PIX
               </button>
-
-              {isManualPix ? (
-                <div className="manual-pix-customer">
-                  <p>
-                    Depois de pagar,
-                    avise a loja. O
-                    pedido só será
-                    confirmado após a
-                    conferência no
-                    aplicativo bancário.
-                  </p>
-
-                  {data.payment
-                    .reportedAt ? (
-                    <div className="manual-payment-reported">
-                      <ShieldCheck />
-                      <span>
-                        Pagamento
-                        informado.
-                        Aguardando
-                        conferência da
-                        loja.
-                      </span>
-                    </div>
-                  ) : (
-                    <button
-                      className="primary"
-                      type="button"
-                      disabled={
-                        reportPayment
-                          .isPending
-                      }
-                      onClick={() =>
-                        reportPayment.mutate()
-                      }
-                    >
-                      {reportPayment
-                        .isPending
-                        ? "Avisando a loja..."
-                        : "Já fiz o PIX"}
-                    </button>
-                  )}
-
-                  {reportPayment.error && (
-                    <p className="error-text">
-                      {
-                        reportPayment
-                          .error.message
-                      }
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="pix-provider-note">
-                  A confirmação é
-                  automática pelo
-                  Mercado Pago.
-                </p>
-              )}
             </div>
           )}
 
@@ -332,7 +243,6 @@ export function OrderPage() {
                   {
                     item.productName
                   }
-
                   <small>
                     {item.options
                       .map(
@@ -359,7 +269,6 @@ export function OrderPage() {
 
         <button
           className="whatsapp"
-          type="button"
           onClick={whatsapp}
         >
           <MessageCircle />
