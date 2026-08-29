@@ -35,6 +35,8 @@ type PaymentMethod =
   | "CREDIT_HIPER"
   | "CREDIT_HIPERCARD"
   | "CREDIT_AMEX"
+  | "TICKET_ALIMENTACAO"
+  | "TICKET_REFEICAO"
   | "PLUXEE_ALIMENTACAO"
   | "PLUXEE_REFEICAO";
 
@@ -93,6 +95,8 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
     DEBIT: "Débito",
     CREDIT: "Crédito",
     TICKET: "Ticket",
+    TICKET_ALIMENTACAO: "Ticket Alimentação",
+    TICKET_REFEICAO: "Ticket Refeição",
     VR_ALIMENTACAO: "VR Alimentação",
     VR_REFEICAO: "VR Refeição",
     PLUXEE: "Pluxee",

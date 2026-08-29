@@ -110,6 +110,8 @@ function paymentLabel(payment?: AdminPayment) {
     CREDIT_HIPER: "Crédito · Hiper",
     CREDIT_HIPERCARD: "Crédito · Hipercard",
     CREDIT_AMEX: "Crédito · American Express",
+    TICKET_ALIMENTACAO: "Ticket Alimentação",
+    TICKET_REFEICAO: "Ticket Refeição",
     PLUXEE_ALIMENTACAO: "Pluxee Alimentação",
     PLUXEE_REFEICAO: "Pluxee Refeição",
   };

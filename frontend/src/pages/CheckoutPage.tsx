@@ -47,7 +47,6 @@ type DeliveryQuoteResult = {
 type PaymentMethod =
   | "PIX"
   | "CASH"
-  | "TICKET"
   | "DEBIT_ELO"
   | "DEBIT_VISA"
   | "DEBIT_MASTERCARD"
@@ -57,6 +56,8 @@ type PaymentMethod =
   | "CREDIT_HIPER"
   | "CREDIT_HIPERCARD"
   | "CREDIT_AMEX"
+  | "TICKET_ALIMENTACAO"
+  | "TICKET_REFEICAO"
   | "VR_ALIMENTACAO"
   | "VR_REFEICAO"
   | "PLUXEE_ALIMENTACAO"
@@ -65,7 +66,6 @@ type PaymentMethod =
 const paymentMethodLabels: Record<PaymentMethod, string> = {
   PIX: "Pix",
   CASH: "Dinheiro",
-  TICKET: "Ticket",
   DEBIT_ELO: "Débito · Elo",
   DEBIT_VISA: "Débito · Visa",
   DEBIT_MASTERCARD: "Débito · Mastercard",
@@ -75,6 +75,8 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   CREDIT_HIPER: "Crédito · Hiper",
   CREDIT_HIPERCARD: "Crédito · Hipercard",
   CREDIT_AMEX: "Crédito · American Express",
+  TICKET_ALIMENTACAO: "Ticket Alimentação",
+  TICKET_REFEICAO: "Ticket Refeição",
   VR_ALIMENTACAO: "VR Alimentação",
   VR_REFEICAO: "VR Refeição",
   PLUXEE_ALIMENTACAO: "Pluxee Alimentação",
@@ -520,10 +522,13 @@ export function CheckoutPage() {
           <div
             style={{
               display: "grid",
-              gap: 14,
+              gap: 12,
             }}
           >
-            <div className="fulfillment payment-methods">
+            <div
+              className="fulfillment payment-methods"
+              style={{ margin: 0 }}
+            >
               <button
                 type="button"
                 className={paymentMethod === "PIX" ? "selected" : ""}
@@ -540,14 +545,6 @@ export function CheckoutPage() {
               >
                 <Banknote /> Dinheiro
               </button>
-
-              <button
-                type="button"
-                className={paymentMethod === "TICKET" ? "selected" : ""}
-                onClick={() => setPaymentMethod("TICKET")}
-              >
-                <CreditCard /> Ticket
-              </button>
             </div>
 
             {paymentMethod === "CASH" && (
@@ -556,8 +553,9 @@ export function CheckoutPage() {
                   display: "grid",
                   gap: 10,
                   padding: 14,
-                  borderRadius: 12,
+                  borderRadius: 14,
                   border: "1px solid rgba(255,255,255,.12)",
+                  background: "rgba(255,255,255,.035)",
                 }}
               >
                 <strong>Vai precisar de troco?</strong>
@@ -606,24 +604,48 @@ export function CheckoutPage() {
               </div>
             )}
 
-            <div>
-              <strong>Débito</strong>
-              <small
+            <details
+              style={{
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 14,
+                background: "rgba(255,255,255,.03)",
+                overflow: "hidden",
+              }}
+            >
+              <summary
                 style={{
-                  display: "block",
-                  margin: "4px 0 8px",
+                  cursor: "pointer",
+                  listStyle: "none",
+                  padding: "14px 16px",
+                  fontWeight: 700,
                 }}
               >
-                Bandeiras aceitas
-              </small>
+                💳 Débito
+                <small
+                  style={{
+                    display: "block",
+                    fontWeight: 400,
+                    opacity: .7,
+                    marginTop: 4,
+                  }}
+                >
+                  Elo, Visa e Mastercard
+                </small>
+              </summary>
 
-              <div className="fulfillment payment-methods">
+              <div
+                className="fulfillment payment-methods"
+                style={{
+                  margin: 0,
+                  padding: "0 14px 14px",
+                }}
+              >
                 <button
                   type="button"
                   className={paymentMethod === "DEBIT_ELO" ? "selected" : ""}
                   onClick={() => setPaymentMethod("DEBIT_ELO")}
                 >
-                  <CreditCard /> Elo
+                  Elo
                 </button>
 
                 <button
@@ -631,7 +653,7 @@ export function CheckoutPage() {
                   className={paymentMethod === "DEBIT_VISA" ? "selected" : ""}
                   onClick={() => setPaymentMethod("DEBIT_VISA")}
                 >
-                  <CreditCard /> Visa
+                  Visa
                 </button>
 
                 <button
@@ -639,120 +661,178 @@ export function CheckoutPage() {
                   className={paymentMethod === "DEBIT_MASTERCARD" ? "selected" : ""}
                   onClick={() => setPaymentMethod("DEBIT_MASTERCARD")}
                 >
-                  <CreditCard /> Mastercard
+                  Mastercard
                 </button>
               </div>
-            </div>
+            </details>
 
-            <div>
-              <strong>Crédito</strong>
-              <small
+            <details
+              style={{
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 14,
+                background: "rgba(255,255,255,.03)",
+                overflow: "hidden",
+              }}
+            >
+              <summary
                 style={{
-                  display: "block",
-                  margin: "4px 0 8px",
+                  cursor: "pointer",
+                  listStyle: "none",
+                  padding: "14px 16px",
+                  fontWeight: 700,
                 }}
               >
-                Bandeiras aceitas
-              </small>
-
-              <div className="fulfillment payment-methods">
-                <button
-                  type="button"
-                  className={paymentMethod === "CREDIT_ELO" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("CREDIT_ELO")}
+                💳 Crédito
+                <small
+                  style={{
+                    display: "block",
+                    fontWeight: 400,
+                    opacity: .7,
+                    marginTop: 4,
+                  }}
                 >
-                  <CreditCard /> Elo
-                </button>
+                  Elo, Visa, Mastercard, Hiper, Hipercard e American Express
+                </small>
+              </summary>
 
-                <button
-                  type="button"
-                  className={paymentMethod === "CREDIT_VISA" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("CREDIT_VISA")}
-                >
-                  <CreditCard /> Visa
-                </button>
-
-                <button
-                  type="button"
-                  className={paymentMethod === "CREDIT_MASTERCARD" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("CREDIT_MASTERCARD")}
-                >
-                  <CreditCard /> Mastercard
-                </button>
-
-                <button
-                  type="button"
-                  className={paymentMethod === "CREDIT_HIPER" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("CREDIT_HIPER")}
-                >
-                  <CreditCard /> Hiper
-                </button>
-
-                <button
-                  type="button"
-                  className={paymentMethod === "CREDIT_HIPERCARD" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("CREDIT_HIPERCARD")}
-                >
-                  <CreditCard /> Hipercard
-                </button>
-
-                <button
-                  type="button"
-                  className={paymentMethod === "CREDIT_AMEX" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("CREDIT_AMEX")}
-                >
-                  <CreditCard /> American Express
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <strong>VR</strong>
               <div
                 className="fulfillment payment-methods"
-                style={{ marginTop: 8 }}
+                style={{
+                  margin: 0,
+                  padding: "0 14px 14px",
+                }}
               >
-                <button
-                  type="button"
-                  className={paymentMethod === "VR_ALIMENTACAO" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("VR_ALIMENTACAO")}
-                >
-                  <CreditCard /> Alimentação
-                </button>
-
-                <button
-                  type="button"
-                  className={paymentMethod === "VR_REFEICAO" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("VR_REFEICAO")}
-                >
-                  <CreditCard /> Refeição
-                </button>
+                {[
+                  ["CREDIT_ELO", "Elo"],
+                  ["CREDIT_VISA", "Visa"],
+                  ["CREDIT_MASTERCARD", "Mastercard"],
+                  ["CREDIT_HIPER", "Hiper"],
+                  ["CREDIT_HIPERCARD", "Hipercard"],
+                  ["CREDIT_AMEX", "American Express"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={paymentMethod === value ? "selected" : ""}
+                    onClick={() =>
+                      setPaymentMethod(value as PaymentMethod)
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-            </div>
+            </details>
 
-            <div>
-              <strong>Pluxee</strong>
+            <details
+              style={{
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 14,
+                background: "rgba(255,255,255,.03)",
+                overflow: "hidden",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  listStyle: "none",
+                  padding: "14px 16px",
+                  fontWeight: 700,
+                }}
+              >
+                🍽️ Benefícios
+                <small
+                  style={{
+                    display: "block",
+                    fontWeight: 400,
+                    opacity: .7,
+                    marginTop: 4,
+                  }}
+                >
+                  Ticket, VR e Pluxee
+                </small>
+              </summary>
+
               <div
-                className="fulfillment payment-methods"
-                style={{ marginTop: 8 }}
+                style={{
+                  display: "grid",
+                  gap: 14,
+                  padding: "0 14px 14px",
+                }}
               >
-                <button
-                  type="button"
-                  className={paymentMethod === "PLUXEE_ALIMENTACAO" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("PLUXEE_ALIMENTACAO")}
-                >
-                  <CreditCard /> Alimentação
-                </button>
+                <div>
+                  <strong>Ticket</strong>
+                  <div
+                    className="fulfillment payment-methods"
+                    style={{ marginTop: 8 }}
+                  >
+                    <button
+                      type="button"
+                      className={paymentMethod === "TICKET_ALIMENTACAO" ? "selected" : ""}
+                      onClick={() => setPaymentMethod("TICKET_ALIMENTACAO")}
+                    >
+                      Alimentação
+                    </button>
 
-                <button
-                  type="button"
-                  className={paymentMethod === "PLUXEE_REFEICAO" ? "selected" : ""}
-                  onClick={() => setPaymentMethod("PLUXEE_REFEICAO")}
-                >
-                  <CreditCard /> Refeição
-                </button>
+                    <button
+                      type="button"
+                      className={paymentMethod === "TICKET_REFEICAO" ? "selected" : ""}
+                      onClick={() => setPaymentMethod("TICKET_REFEICAO")}
+                    >
+                      Refeição
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <strong>VR</strong>
+                  <div
+                    className="fulfillment payment-methods"
+                    style={{ marginTop: 8 }}
+                  >
+                    <button
+                      type="button"
+                      className={paymentMethod === "VR_ALIMENTACAO" ? "selected" : ""}
+                      onClick={() => setPaymentMethod("VR_ALIMENTACAO")}
+                    >
+                      Alimentação
+                    </button>
+
+                    <button
+                      type="button"
+                      className={paymentMethod === "VR_REFEICAO" ? "selected" : ""}
+                      onClick={() => setPaymentMethod("VR_REFEICAO")}
+                    >
+                      Refeição
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <strong>Pluxee</strong>
+                  <div
+                    className="fulfillment payment-methods"
+                    style={{ marginTop: 8 }}
+                  >
+                    <button
+                      type="button"
+                      className={paymentMethod === "PLUXEE_ALIMENTACAO" ? "selected" : ""}
+                      onClick={() => setPaymentMethod("PLUXEE_ALIMENTACAO")}
+                    >
+                      Alimentação
+                    </button>
+
+                    <button
+                      type="button"
+                      className={paymentMethod === "PLUXEE_REFEICAO" ? "selected" : ""}
+                      onClick={() => setPaymentMethod("PLUXEE_REFEICAO")}
+                    >
+                      Refeição
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
           </div>
 
           <p className="payment-note">
@@ -771,6 +851,7 @@ export function CheckoutPage() {
                   : "Pagamento em dinheiro na entrega."
                 : `${paymentMethodLabels[paymentMethod]} na entrega.`}
           </p>
+
 
 
 
