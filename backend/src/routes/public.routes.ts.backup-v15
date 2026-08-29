@@ -170,22 +170,7 @@ export async function publicRoutes(app: FastifyInstance) {
       customerName: result.order.customerName,
       totalCents: result.order.totalCents,
       fulfillment: result.order.fulfillment,
-      /* MESA4_WHATSAPP_ITEM_PRICES_V15 */
-items: result.order.items.map((item) => ({
-  productName: `${item.productName} — ${(
-    item.unitPriceCents / 100
-  ).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  })} cada = ${(
-    item.lineTotalCents / 100
-  ).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  })}`,
-  quantity: item.quantity,
-  options: item.options,
-})),
+      items: result.order.items.map((item) => ({ productName: item.productName, quantity: item.quantity, options: item.options })),
     });
     return { url: `https://wa.me/${settings?.whatsappNumber ?? ""}?text=${encodeURIComponent(message)}` };
   });
