@@ -233,70 +233,7 @@ export function OrderPage() {
                 />
               )}
 
-              <div
-                data-pix-price-breakdown="true"
-                style={{
-                  width: "100%",
-                  maxWidth: 360,
-                  margin: "8px auto 16px",
-                  padding: "14px 16px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.06)",
-                  display: "grid",
-                  gap: 8,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 16,
-                  }}
-                >
-                  <span>Pedido</span>
-                  <strong>
-                    {formatMoney(
-                      data.order.subtotalCents,
-                    )}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 16,
-                  }}
-                >
-                  <span>Entrega</span>
-                  <strong>
-                    {formatMoney(
-                      deliveryFeeForDisplay,
-                    )}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 16,
-                    paddingTop: 8,
-                    marginTop: 4,
-                    borderTop:
-                      "1px solid rgba(255,255,255,0.14)",
-                    fontSize: "1.05rem",
-                  }}
-                >
-                  <span>Total</span>
-                  <strong>
-                    {formatMoney(
-                      data.order.totalCents,
-                    )}
-                  </strong>
-                </div>
-              </div>
+              
 
               <button
                 className="secondary"
@@ -401,9 +338,69 @@ export function OrderPage() {
             </div>
           ))}
 
-          <strong>
-            Total: {formatMoney(data.order.totalCents)}
-          </strong>
+
+          <div
+            data-order-price-footer="true"
+            style={{
+              width: "100%",
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop:
+                "1px solid rgba(255,255,255,0.14)",
+              display: "grid",
+              gap: 9,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 16,
+              }}
+            >
+              <span>Pedido</span>
+              <strong>
+                {formatMoney(
+                  data.order.subtotalCents,
+                )}
+              </strong>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 16,
+              }}
+            >
+              <span>Entrega</span>
+              <strong>
+                {formatMoney(
+                  deliveryFeeForDisplay,
+                )}
+              </strong>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 16,
+                paddingTop: 9,
+                marginTop: 3,
+                borderTop:
+                  "1px solid rgba(255,255,255,0.14)",
+                fontSize: "1.08rem",
+              }}
+            >
+              <span>Total</span>
+              <strong>
+                {formatMoney(
+                  data.order.totalCents,
+                )}
+              </strong>
+            </div>
+          </div>
         </div>
 
         <button
