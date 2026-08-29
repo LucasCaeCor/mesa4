@@ -41,12 +41,6 @@ enum PaymentMethod {
   PIX
   CASH
   CARD
-  DEBIT
-  CREDIT
-  TICKET
-  VR_ALIMENTACAO
-  VR_REFEICAO
-  PLUXEE
 }
 
 enum PixPaymentMode {

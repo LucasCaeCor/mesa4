@@ -1,5 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bike, Search, Store, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  CreditCard,
+  QrCode,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -35,6 +42,27 @@ type DeliveryQuoteResult = {
   durationSeconds?: number;
   durationMinutes?: number;
   maxDistanceKm?: number;
+};
+
+type PaymentMethod =
+  | "PIX"
+  | "CASH"
+  | "DEBIT"
+  | "CREDIT"
+  | "TICKET"
+  | "VR_ALIMENTACAO"
+  | "VR_REFEICAO"
+  | "PLUXEE";
+
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  PIX: "Pix",
+  CASH: "Dinheiro",
+  DEBIT: "Débito",
+  CREDIT: "Crédito",
+  TICKET: "Ticket",
+  VR_ALIMENTACAO: "VR Alimentação",
+  VR_REFEICAO: "VR Refeição",
+  PLUXEE: "Pluxee",
 };
 
 export function CheckoutPage() {
@@ -110,9 +138,9 @@ export function CheckoutPage() {
     setOpen(false);
   }
 
-  const [fulfillment, setFulfillment] = useState<"DELIVERY" | "PICKUP">(
-    "DELIVERY",
-  );
+ const fulfillment = "DELIVERY" as const;
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("PIX");
   const [postalCode, setPostalCode] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -223,8 +251,7 @@ export function CheckoutPage() {
       customerName: form.get("name"),
       customerPhone: form.get("phone"),
       whatsappOptIn: form.get("whatsappOptIn") === "on",
-      customerEmail: form.get("email"),
-      customerDocument: form.get("document") || undefined,
+      paymentMethod,
       fulfillment,
       address:
         fulfillment === "DELIVERY"
@@ -277,23 +304,7 @@ export function CheckoutPage() {
 
       <form className="checkout-grid" onSubmit={submit}>
         <section className="checkout-form">
-          <h2>Como você quer receber?</h2>
-          <div className="fulfillment">
-            <button
-              type="button"
-              className={fulfillment === "DELIVERY" ? "selected" : ""}
-              onClick={() => setFulfillment("DELIVERY")}
-            >
-              <Bike /> Entrega
-            </button>
-            <button
-              type="button"
-              className={fulfillment === "PICKUP" ? "selected" : ""}
-              onClick={() => setFulfillment("PICKUP")}
-            >
-              <Store /> Retirada
-            </button>
-          </div>
+          
 
           <h2>Seus dados</h2>
           <div className="field-grid">
@@ -305,14 +316,7 @@ export function CheckoutPage() {
               <span>WhatsApp</span>
               <input name="phone" required inputMode="tel" />
             </label>
-            <label className="field">
-              <span>E-mail</span>
-              <input name="email" required type="email" />
-            </label>
-            <label className="field full">
-              <span>CPF (opcional)</span>
-              <input name="document" inputMode="numeric" />
-            </label>
+
           </div>
 
 
@@ -481,6 +485,74 @@ export function CheckoutPage() {
               )}
             </>
           )}
+          <h2>Forma de pagamento</h2>
+          <div className="fulfillment payment-methods">
+            <button
+              type="button"
+              className={paymentMethod === "PIX" ? "selected" : ""}
+              onClick={() => setPaymentMethod("PIX")}
+              disabled={store.data?.settings.pixEnabled === false}
+            >
+              <QrCode /> Pix
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "CASH" ? "selected" : ""}
+              onClick={() => setPaymentMethod("CASH")}
+            >
+              <Banknote /> Dinheiro
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "DEBIT" ? "selected" : ""}
+              onClick={() => setPaymentMethod("DEBIT")}
+            >
+              <CreditCard /> Débito
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "CREDIT" ? "selected" : ""}
+              onClick={() => setPaymentMethod("CREDIT")}
+            >
+              <CreditCard /> Crédito
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "TICKET" ? "selected" : ""}
+              onClick={() => setPaymentMethod("TICKET")}
+            >
+              <CreditCard /> Ticket
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "VR_ALIMENTACAO" ? "selected" : ""}
+              onClick={() => setPaymentMethod("VR_ALIMENTACAO")}
+            >
+              <CreditCard /> VR Alimentação
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "VR_REFEICAO" ? "selected" : ""}
+              onClick={() => setPaymentMethod("VR_REFEICAO")}
+            >
+              <CreditCard /> VR Refeição
+            </button>
+
+            <button
+              type="button"
+              className={paymentMethod === "PLUXEE" ? "selected" : ""}
+              onClick={() => setPaymentMethod("PLUXEE")}
+            >
+              <CreditCard /> Pluxee
+            </button>
+          </div>
+
 
           <label className="field full">
             <span>Observação geral</span>
@@ -593,23 +665,20 @@ export function CheckoutPage() {
           </div>
           <div>
             <span>Entrega</span>
-            <b>
-              {fulfillment === "PICKUP"
-                ? "Grátis"
-                : dynamicDeliveryEnabled && !deliveryQuote.data
-                  ? "Calcule o endereço"
-                  : formatMoney(deliveryFee)}
-            </b>
+            <b>{formatMoney(deliveryFee)}</b>
           </div>
           <div className="summary-total">
             <span>Total</span>
             <strong>{formatMoney(total)}</strong>
           </div>
           <p className="payment-note">
-            {store.data?.settings.pixPaymentMode ===
-            "MANUAL"
-              ? "Pix direto para a chave da loja. Depois de pagar, avise pelo acompanhamento e aguarde a conferência."
-              : "Pagamento seguro por PIX com confirmação automática. O preço final é recalculado pelo servidor."}
+            {paymentMethod === "PIX"
+              ? store.data?.settings.pixPaymentMode === "MANUAL"
+                ? "Pix direto para a chave da loja. Depois de pagar, avise pelo acompanhamento e aguarde a conferência."
+                : "Pagamento seguro por PIX com confirmação automática. O preço final é recalculado pelo servidor."
+              : paymentMethod === "CASH"
+                ? "Pagamento em dinheiro na entrega."
+                : `Pagamento com ${paymentMethodLabels[paymentMethod]} na entrega, pela maquininha.`}
           </p>
           {!store.isLoading &&
             !isStoreOpen && (
@@ -629,6 +698,8 @@ export function CheckoutPage() {
               !isStoreOpen ||
               mutation.isPending ||
               store.isLoading ||
+              (paymentMethod === "PIX" &&
+                store.data?.settings.pixEnabled === false) ||
               (fulfillment === "DELIVERY" &&
                 dynamicDeliveryEnabled &&
                 !deliveryQuote.data)
@@ -637,12 +708,12 @@ export function CheckoutPage() {
             {!isStoreOpen
               ? "Loja fechada agora"
               : mutation.isPending
-                ? "Gerando PIX..."
+                ? "Enviando pedido..."
               : fulfillment === "DELIVERY" &&
                   dynamicDeliveryEnabled &&
                   !deliveryQuote.data
                 ? "Calcule a entrega para continuar"
-                : `Gerar PIX · ${formatMoney(total)}`}
+                : `Finalizar pedido · ${formatMoney(total)}`}
           </button>
         </aside>
       </form>

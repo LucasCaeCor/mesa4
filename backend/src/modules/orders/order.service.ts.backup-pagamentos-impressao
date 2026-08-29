@@ -64,13 +64,7 @@ export async function createOrder(input: CreateOrderInput) {
       "STORE_CLOSED",
     );
   }
-  if (input.paymentMethod === "PIX" && !settings.pixEnabled) {
-    throw new HttpError(
-      409,
-      "Pagamento PIX temporariamente indisponível",
-      "PIX_DISABLED",
-    );
-  }
+  if (!settings.pixEnabled) throw new HttpError(409, "Pagamento PIX temporariamente indisponível", "PIX_DISABLED");
 
   const productIds = [...new Set(input.items.map((item) => item.productId))];
   const products = await prisma.product.findMany({
@@ -150,18 +144,13 @@ export async function createOrder(input: CreateOrderInput) {
   const totalCents = subtotalCents + deliveryFeeCents;
   const publicId = createPublicOrderId();
   const trackingToken = createTrackingToken();
-  const isPix = input.paymentMethod === "PIX";
-  const paymentMode = isPix
-    ? settings.pixPaymentMode ?? "MERCADO_PAGO"
-    : null;
-  const initialStatus = isPix
-    ? "PENDING_PAYMENT"
-    : "CONFIRMED";
-  const idempotencyKey = isPix
-    ? paymentMode === "MANUAL"
+  const paymentMode =
+    settings.pixPaymentMode ?? "MERCADO_PAGO";
+  const idempotencyKey =
+    paymentMode === "MANUAL"
       ? `manual-pix-${publicId}`
-      : `pix-${publicId}`
-    : `${input.paymentMethod.toLowerCase()}-${publicId}`;
+      : `pix-${publicId}`;
+
   const order = await prisma.order.create({
     data: {
       publicId,
@@ -170,9 +159,7 @@ export async function createOrder(input: CreateOrderInput) {
       customerPhone: input.customerPhone.replace(/\D/g, ""),
       whatsappOptIn: input.whatsappOptIn,
       whatsappOptInAt: input.whatsappOptIn ? new Date() : undefined,
-      customerEmail:
-        input.customerEmail?.toLowerCase() ??
-        `pedido.${publicId.toLowerCase()}@mesaiv.online`,
+      customerEmail: input.customerEmail.toLowerCase(),
       customerDocument: input.customerDocument?.replace(/\D/g, ""),
       fulfillment: input.fulfillment,
       deliveryZoneId: undefined,
@@ -192,53 +179,21 @@ export async function createOrder(input: CreateOrderInput) {
       deliveryDurationSeconds: deliveryQuote?.durationSeconds,
       totalCents,
       items: { create: itemCreates },
-      status: initialStatus,
-      statusHistory: {
-        create: {
-          status: initialStatus,
-          note: isPix
-            ? "Pedido criado"
-            : "Pedido confirmado - pagamento na entrega",
-        },
-      },
+      statusHistory: { create: { status: "PENDING_PAYMENT", note: "Pedido criado" } },
       payments: {
         create: {
-          provider: !isPix
-            ? "PAY_ON_DELIVERY"
-            : paymentMode === "MANUAL"
+          provider:
+            paymentMode === "MANUAL"
               ? "MANUAL_PIX"
               : "MERCADO_PAGO",
-          method: input.paymentMethod,
           amountCents: totalCents,
           idempotencyKey,
           status: "PENDING",
-          statusDetail: isPix
-            ? undefined
-            : `PAY_ON_DELIVERY_${input.paymentMethod}`,
         },
       },
     },
     include: { items: { include: { options: true } }, payments: true },
   });
-
-  if (!isPix) {
-    await sendOrderStatusWhatsApp(order.id, {
-      source: "AUTO",
-    }).catch((error) => {
-      console.error(
-        "WhatsApp automatic notification failed",
-        {
-          orderId: order.id,
-          error,
-        },
-      );
-    });
-
-    return getOrderForCustomer(
-      publicId,
-      trackingToken,
-    );
-  }
 
   try {
     if (paymentMode === "MANUAL") {
@@ -289,9 +244,7 @@ export async function createOrder(input: CreateOrderInput) {
         amountCents: totalCents,
         description:
           `Pedido ${publicId} - Mesa IV Burgers`,
-        email:
-          input.customerEmail ??
-          `pedido.${publicId.toLowerCase()}@mesaiv.online`,
+        email: input.customerEmail,
         firstName:
           input.customerName.split(" ")[0] ??
           input.customerName,
@@ -642,8 +595,6 @@ export async function getOrderForCustomer(
       ? {
           provider:
             payment.provider,
-          method:
-            payment.method,
           status: payment.status,
           statusDetail:
             payment.statusDetail,

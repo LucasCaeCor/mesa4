@@ -411,8 +411,39 @@ export async function adminRoutes(app: FastifyInstance) {
       }
 
       if (
+        input.status === "PAID" &&
+        payment?.provider === "PAY_ON_DELIVERY" &&
+        payment.status === "PENDING"
+      ) {
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "APPROVED",
+            statusDetail:
+              "PAYMENT_CONFIRMED_BY_ADMIN",
+          },
+        });
+      }
+
+      if (
+        input.status === "PAID" &&
+        payment?.provider === "PAY_ON_DELIVERY" &&
+        payment.status === "PENDING"
+      ) {
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "APPROVED",
+            statusDetail:
+              "PAYMENT_CONFIRMED_BY_ADMIN",
+          },
+        });
+      }
+
+      if (
         input.status === "CANCELED" &&
-        payment?.provider === "MANUAL_PIX" &&
+        (payment?.provider === "MANUAL_PIX" ||
+          payment?.provider === "PAY_ON_DELIVERY") &&
         payment.status === "PENDING"
       ) {
         await prisma.payment.update({
@@ -430,7 +461,10 @@ export async function adminRoutes(app: FastifyInstance) {
         (input.status === "PAID" &&
         payment?.provider === "MANUAL_PIX"
           ? "Pagamento Pix manual confirmado"
-          : undefined);
+          : input.status === "PAID" &&
+              payment?.provider === "PAY_ON_DELIVERY"
+            ? "Pagamento na entrega confirmado"
+            : undefined);
 
       const order = await prisma.order.update({
         where: { id },

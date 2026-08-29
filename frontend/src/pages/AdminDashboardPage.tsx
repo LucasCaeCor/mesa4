@@ -251,12 +251,26 @@ function formatDuration(seconds?: number) {
   return `${Math.max(1, Math.ceil(seconds / 60))} min`;
 }
 
-function paymentProviderLabel(provider?: string) {
-  return provider === "MANUAL_PIX"
-    ? "Pix manual"
-    : "Mercado Pago";
-}
+function paymentProviderLabel(payment?: AdminPayment) {
+  const labels: Record<string, string> = {
+    PIX:
+      payment?.provider === "MANUAL_PIX"
+        ? "Pix manual"
+        : "Pix",
+    CASH: "Dinheiro",
+    CARD: "Cartão",
+    DEBIT: "Débito",
+    CREDIT: "Crédito",
+    TICKET: "Ticket",
+    VR_ALIMENTACAO: "VR Alimentação",
+    VR_REFEICAO: "VR Refeição",
+    PLUXEE: "Pluxee",
+  };
 
+  return payment?.method
+    ? labels[payment.method] ?? payment.method
+    : "Não informado";
+}
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -409,7 +423,10 @@ export function AdminDashboardPage() {
       const buttonLabel =
         status === "PAID" && isManualPix
           ? "Confirmar Pix manual"
-          : labels[status];
+          : status === "PAID" &&
+              payment?.provider === "PAY_ON_DELIVERY"
+            ? "Confirmar pagamento"
+            : labels[status];
 
       return (
         <button
@@ -618,9 +635,7 @@ export function AdminDashboardPage() {
                   <div className="payment-provider-row">
                     <span className="payment-provider-chip">
                       <Banknote />
-                      {paymentProviderLabel(
-                        payment?.provider,
-                      )}
+                      {paymentProviderLabel(payment)}
                     </span>
 
                     {isManualPix &&
@@ -803,24 +818,6 @@ export function AdminDashboardPage() {
                       {selectedOrder.customerPhone}
                     </strong>
                   </div>
-
-                  <div>
-                    <span>E-mail</span>
-                    <strong>
-                      {selectedOrder.customerEmail}
-                    </strong>
-                  </div>
-
-                  {selectedOrder.customerDocument && (
-                    <div>
-                      <span>Documento</span>
-                      <strong>
-                        {
-                          selectedOrder.customerDocument
-                        }
-                      </strong>
-                    </div>
-                  )}
                 </div>
               </section>
 
@@ -954,10 +951,7 @@ export function AdminDashboardPage() {
                   <div>
                     <span>Forma</span>
                     <strong>
-                      {paymentProviderLabel(
-                        selectedOrder.payments?.[0]
-                          ?.provider,
-                      )}
+                      {paymentProviderLabel(selectedOrder.payments?.[0])}
                     </strong>
                   </div>
 

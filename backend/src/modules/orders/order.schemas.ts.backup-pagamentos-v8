@@ -29,7 +29,7 @@ export const createOrderSchema = z.object({
   whatsappOptIn: z.boolean().default(false),
   customerEmail: z.string().trim().email().max(150).optional(),
   customerDocument: z.string().trim().max(20).optional(),
-  paymentMethod: z.enum(["PIX", "CASH", "DEBIT", "CREDIT", "TICKET", "VR_ALIMENTACAO", "VR_REFEICAO", "PLUXEE"]).default("PIX"),
+  paymentMethod: z.enum(["PIX", "CASH", "CARD"]).default("PIX"),
   fulfillment: z.enum(["DELIVERY", "PICKUP"]),
   deliveryZoneId: z.string().optional(),
   address: addressSchema.optional(),

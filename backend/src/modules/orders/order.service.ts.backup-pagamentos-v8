@@ -157,11 +157,15 @@ export async function createOrder(input: CreateOrderInput) {
   const initialStatus = isPix
     ? "PENDING_PAYMENT"
     : "CONFIRMED";
-  const idempotencyKey = isPix
-    ? paymentMode === "MANUAL"
-      ? `manual-pix-${publicId}`
-      : `pix-${publicId}`
-    : `${input.paymentMethod.toLowerCase()}-${publicId}`;
+  const idempotencyKey =
+    input.paymentMethod === "CASH"
+      ? `cash-${publicId}`
+      : input.paymentMethod === "CARD"
+        ? `card-${publicId}`
+        : paymentMode === "MANUAL"
+          ? `manual-pix-${publicId}`
+          : `pix-${publicId}`;
+
   const order = await prisma.order.create({
     data: {
       publicId,
@@ -212,9 +216,12 @@ export async function createOrder(input: CreateOrderInput) {
           amountCents: totalCents,
           idempotencyKey,
           status: "PENDING",
-          statusDetail: isPix
-            ? undefined
-            : `PAY_ON_DELIVERY_${input.paymentMethod}`,
+          statusDetail:
+            input.paymentMethod === "CASH"
+              ? "CASH_ON_DELIVERY"
+              : input.paymentMethod === "CARD"
+                ? "CARD_ON_DELIVERY"
+                : undefined,
         },
       },
     },
