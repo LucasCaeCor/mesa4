@@ -251,7 +251,6 @@ async function audit(request: any, action: string, entity: string, entityId?: st
   });
 }
 
-import { sendAdminPushTest } from "../modules/push/admin-push.service.js";
 export async function adminRoutes(app: FastifyInstance) {
   app.post(
     "/admin/auth/login",
@@ -464,108 +463,6 @@ export async function adminRoutes(app: FastifyInstance) {
   );
 
 app.get("/admin/me", { preHandler: app.authenticateAdmin }, async (request) => ({ admin: request.user }));
-
-  app.post(
-    "/admin/push/devices",
-    {
-      preHandler: app.authenticateAdmin,
-      config: {
-        rateLimit: {
-          max: 30,
-          timeWindow: "10 minutes",
-        },
-      },
-    },
-    async (request, reply) => {
-      const input = z
-        .object({
-          fid: z.string().trim().min(10).max(500),
-          platform: z
-            .enum(["ANDROID"])
-            .default("ANDROID"),
-          deviceName: z
-            .string()
-            .trim()
-            .max(120)
-            .optional(),
-        })
-        .parse(request.body);
-
-      const device =
-        await prisma.adminPushDevice.upsert({
-          where: {
-            fid: input.fid,
-          },
-          update: {
-            adminId: request.user.sub,
-            platform: input.platform,
-            deviceName: input.deviceName,
-            active: true,
-            lastSeenAt: new Date(),
-          },
-          create: {
-            adminId: request.user.sub,
-            fid: input.fid,
-            platform: input.platform,
-            deviceName: input.deviceName,
-            active: true,
-            lastSeenAt: new Date(),
-          },
-        });
-
-      return reply.code(201).send({
-        id: device.id,
-        active: device.active,
-      });
-    },
-  );
-
-  app.post(
-    "/admin/push/devices/unregister",
-    {
-      preHandler: app.authenticateAdmin,
-    },
-    async (request) => {
-      const input = z
-        .object({
-          fid: z.string().trim().min(10).max(500),
-        })
-        .parse(request.body);
-
-      await prisma.adminPushDevice.updateMany({
-        where: {
-          adminId: request.user.sub,
-          fid: input.fid,
-        },
-        data: {
-          active: false,
-          lastSeenAt: new Date(),
-        },
-      });
-
-      return {
-        ok: true,
-      };
-    },
-  );
-
-  app.post(
-    "/admin/push/test",
-    {
-      preHandler: app.authenticateAdmin,
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: "10 minutes",
-        },
-      },
-    },
-    async (request) => {
-      return sendAdminPushTest(
-        request.user.sub,
-      );
-    },
-  );
 
   app.get("/admin/dashboard", { preHandler: app.authenticateAdmin }, async () => {
     const [openOrders, paidToday, revenueToday] = await Promise.all([

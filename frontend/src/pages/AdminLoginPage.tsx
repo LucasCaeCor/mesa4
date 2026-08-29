@@ -4,7 +4,7 @@ import {
 } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, syncAndroidAdminSession } from "../lib/api";
 
 type LoginResult = {
   token: string;
@@ -77,6 +77,11 @@ export function AdminLoginPage() {
           ADMIN_EMAIL_KEY,
         );
       }
+
+      /* MESA4_ANDROID_LOGIN_SYNC_V17_1 */
+      syncAndroidAdminSession(
+        data.token,
+      );
 
       navigate("/admin");
     },

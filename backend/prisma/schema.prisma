@@ -78,7 +78,23 @@ model AdminUser {
   pixTotpLastUsedCounter        Int?
   pixTotpRecoveryCodeHashes     Json?
   auditLogs                     AuditLog[]
+  pushDevices                   AdminPushDevice[]
   pixChangeAuthorizations       PixChangeAuthorization[]
+}
+
+model AdminPushDevice {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  adminId    String    @db.ObjectId
+  admin      AdminUser @relation(fields: [adminId], references: [id])
+  fid        String    @unique
+  platform   String    @default("ANDROID")
+  deviceName String?
+  active     Boolean   @default(true)
+  lastSeenAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([adminId, active])
 }
 
 model PixChangeAuthorization {

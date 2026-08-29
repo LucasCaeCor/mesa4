@@ -12,7 +12,6 @@ import { lookupAddressByCep } from "../modules/address/cep.service.js";
 import { calculateDeliveryQuote } from "../modules/delivery/openroute.service.js";
 import { evaluateStoreAvailability } from "../lib/store-hours.js";
 
-import { sendNewOrderPush } from "../modules/push/admin-push.service.js";
 export async function publicRoutes(app: FastifyInstance) {
   app.get(
     "/store",
@@ -127,24 +126,6 @@ export async function publicRoutes(app: FastifyInstance) {
   app.post("/orders", { config: { rateLimit: { max: 15, timeWindow: "10 minutes" } } }, async (request, reply) => {
     const input = createOrderSchema.parse(request.body);
     const result = await createOrder(input);
-
-    /* MESA4_NEW_ORDER_PUSH_V17 */
-    await sendNewOrderPush({
-      publicId: result.order.publicId,
-      customerName:
-        result.order.customerName,
-      totalCents:
-        result.order.totalCents,
-    }).catch((error) => {
-      request.log.error(
-        {
-          err: error,
-          publicId:
-            result.order.publicId,
-        },
-        "Falha ao enviar push de novo pedido",
-      );
-    });
     return reply.code(201).send(result);
   });
   app.post(

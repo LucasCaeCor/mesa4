@@ -4,6 +4,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import { clearAndroidAdminSession } from "../lib/api";
 export function AdminNav() {
   const navigate = useNavigate();
 
@@ -36,7 +37,9 @@ export function AdminNav() {
           sessionStorage.removeItem(
             "mesa4.admin.token",
           );
-          navigate("/admin/login");
+          /* MESA4_ANDROID_LOGOUT_CLEAR_V17_2 */
+        clearAndroidAdminSession();
+        navigate("/admin/login");
         }}
       >
         <LogOut />

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AdminNav } from "../components/AdminNav";
-import { adminApi } from "../lib/api";
+import { adminApi, clearAndroidAdminSession } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import type { OrderStatus } from "../types";
 import {
@@ -311,6 +311,45 @@ export function AdminDashboardPage() {
       ) ?? null,
     [orders.data, selectedOrderId],
   );
+
+  /* MESA4_PUSH_DEEP_LINK_V17_2 */
+  useEffect(() => {
+    if (!orders.data?.length) {
+      return;
+    }
+
+    const url =
+      new URL(window.location.href);
+
+    const publicId =
+      url.searchParams.get("pedido");
+
+    if (!publicId) {
+      return;
+    }
+
+    const target =
+      orders.data.find(
+        (order) =>
+          order.publicId === publicId,
+      );
+
+    if (!target) {
+      return;
+    }
+
+    setSelectedOrderId(target.id);
+
+    url.searchParams.delete("pedido");
+
+    window.history.replaceState(
+      {},
+      "",
+      url.pathname +
+        url.search +
+        url.hash,
+    );
+  }, [orders.data]);
 
   const update = useMutation({
     mutationFn: ({
