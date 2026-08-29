@@ -47,22 +47,38 @@ type DeliveryQuoteResult = {
 type PaymentMethod =
   | "PIX"
   | "CASH"
-  | "DEBIT"
-  | "CREDIT"
   | "TICKET"
+  | "DEBIT_ELO"
+  | "DEBIT_VISA"
+  | "DEBIT_MASTERCARD"
+  | "CREDIT_ELO"
+  | "CREDIT_VISA"
+  | "CREDIT_MASTERCARD"
+  | "CREDIT_HIPER"
+  | "CREDIT_HIPERCARD"
+  | "CREDIT_AMEX"
   | "VR_ALIMENTACAO"
   | "VR_REFEICAO"
-  | "PLUXEE";
+  | "PLUXEE_ALIMENTACAO"
+  | "PLUXEE_REFEICAO";
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
   PIX: "Pix",
   CASH: "Dinheiro",
-  DEBIT: "Débito",
-  CREDIT: "Crédito",
   TICKET: "Ticket",
+  DEBIT_ELO: "Débito · Elo",
+  DEBIT_VISA: "Débito · Visa",
+  DEBIT_MASTERCARD: "Débito · Mastercard",
+  CREDIT_ELO: "Crédito · Elo",
+  CREDIT_VISA: "Crédito · Visa",
+  CREDIT_MASTERCARD: "Crédito · Mastercard",
+  CREDIT_HIPER: "Crédito · Hiper",
+  CREDIT_HIPERCARD: "Crédito · Hipercard",
+  CREDIT_AMEX: "Crédito · American Express",
   VR_ALIMENTACAO: "VR Alimentação",
   VR_REFEICAO: "VR Refeição",
-  PLUXEE: "Pluxee",
+  PLUXEE_ALIMENTACAO: "Pluxee Alimentação",
+  PLUXEE_REFEICAO: "Pluxee Refeição",
 };
 
 export function CheckoutPage() {
@@ -141,6 +157,10 @@ export function CheckoutPage() {
  const fulfillment = "DELIVERY" as const;
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("PIX");
+  const [needsChange, setNeedsChange] =
+    useState(false);
+  const [cashChangeFor, setCashChangeFor] =
+    useState("");
   const [postalCode, setPostalCode] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -252,6 +272,16 @@ export function CheckoutPage() {
       customerPhone: form.get("phone"),
       whatsappOptIn: form.get("whatsappOptIn") === "on",
       paymentMethod,
+      cashChangeForCents:
+        paymentMethod === "CASH" &&
+        needsChange &&
+        cashChangeFor
+          ? Math.round(
+              Number(
+                cashChangeFor.replace(",", "."),
+              ) * 100,
+            )
+          : undefined,
       fulfillment,
       address:
         fulfillment === "DELIVERY"
@@ -486,72 +516,262 @@ export function CheckoutPage() {
             </>
           )}
           <h2>Forma de pagamento</h2>
-          <div className="fulfillment payment-methods">
-            <button
-              type="button"
-              className={paymentMethod === "PIX" ? "selected" : ""}
-              onClick={() => setPaymentMethod("PIX")}
-              disabled={store.data?.settings.pixEnabled === false}
-            >
-              <QrCode /> Pix
-            </button>
 
-            <button
-              type="button"
-              className={paymentMethod === "CASH" ? "selected" : ""}
-              onClick={() => setPaymentMethod("CASH")}
-            >
-              <Banknote /> Dinheiro
-            </button>
+          <div
+            style={{
+              display: "grid",
+              gap: 14,
+            }}
+          >
+            <div className="fulfillment payment-methods">
+              <button
+                type="button"
+                className={paymentMethod === "PIX" ? "selected" : ""}
+                onClick={() => setPaymentMethod("PIX")}
+                disabled={store.data?.settings.pixEnabled === false}
+              >
+                <QrCode /> Pix
+              </button>
 
-            <button
-              type="button"
-              className={paymentMethod === "DEBIT" ? "selected" : ""}
-              onClick={() => setPaymentMethod("DEBIT")}
-            >
-              <CreditCard /> Débito
-            </button>
+              <button
+                type="button"
+                className={paymentMethod === "CASH" ? "selected" : ""}
+                onClick={() => setPaymentMethod("CASH")}
+              >
+                <Banknote /> Dinheiro
+              </button>
 
-            <button
-              type="button"
-              className={paymentMethod === "CREDIT" ? "selected" : ""}
-              onClick={() => setPaymentMethod("CREDIT")}
-            >
-              <CreditCard /> Crédito
-            </button>
+              <button
+                type="button"
+                className={paymentMethod === "TICKET" ? "selected" : ""}
+                onClick={() => setPaymentMethod("TICKET")}
+              >
+                <CreditCard /> Ticket
+              </button>
+            </div>
 
-            <button
-              type="button"
-              className={paymentMethod === "TICKET" ? "selected" : ""}
-              onClick={() => setPaymentMethod("TICKET")}
-            >
-              <CreditCard /> Ticket
-            </button>
+            {paymentMethod === "CASH" && (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,.12)",
+                }}
+              >
+                <strong>Vai precisar de troco?</strong>
 
-            <button
-              type="button"
-              className={paymentMethod === "VR_ALIMENTACAO" ? "selected" : ""}
-              onClick={() => setPaymentMethod("VR_ALIMENTACAO")}
-            >
-              <CreditCard /> VR Alimentação
-            </button>
+                <div
+                  className="fulfillment payment-methods"
+                  style={{ margin: 0 }}
+                >
+                  <button
+                    type="button"
+                    className={!needsChange ? "selected" : ""}
+                    onClick={() => {
+                      setNeedsChange(false);
+                      setCashChangeFor("");
+                    }}
+                  >
+                    Não
+                  </button>
 
-            <button
-              type="button"
-              className={paymentMethod === "VR_REFEICAO" ? "selected" : ""}
-              onClick={() => setPaymentMethod("VR_REFEICAO")}
-            >
-              <CreditCard /> VR Refeição
-            </button>
+                  <button
+                    type="button"
+                    className={needsChange ? "selected" : ""}
+                    onClick={() => setNeedsChange(true)}
+                  >
+                    Sim
+                  </button>
+                </div>
 
-            <button
-              type="button"
-              className={paymentMethod === "PLUXEE" ? "selected" : ""}
-              onClick={() => setPaymentMethod("PLUXEE")}
-            >
-              <CreditCard /> Pluxee
-            </button>
+                {needsChange && (
+                  <label className="field">
+                    <span>Troco para quanto?</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={total / 100}
+                      step="0.01"
+                      placeholder="Ex.: 100,00"
+                      value={cashChangeFor}
+                      onChange={(event) =>
+                        setCashChangeFor(event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            <div>
+              <strong>Débito</strong>
+              <small
+                style={{
+                  display: "block",
+                  margin: "4px 0 8px",
+                }}
+              >
+                Bandeiras aceitas
+              </small>
+
+              <div className="fulfillment payment-methods">
+                <button
+                  type="button"
+                  className={paymentMethod === "DEBIT_ELO" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("DEBIT_ELO")}
+                >
+                  <CreditCard /> Elo
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "DEBIT_VISA" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("DEBIT_VISA")}
+                >
+                  <CreditCard /> Visa
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "DEBIT_MASTERCARD" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("DEBIT_MASTERCARD")}
+                >
+                  <CreditCard /> Mastercard
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <strong>Crédito</strong>
+              <small
+                style={{
+                  display: "block",
+                  margin: "4px 0 8px",
+                }}
+              >
+                Bandeiras aceitas
+              </small>
+
+              <div className="fulfillment payment-methods">
+                <button
+                  type="button"
+                  className={paymentMethod === "CREDIT_ELO" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("CREDIT_ELO")}
+                >
+                  <CreditCard /> Elo
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "CREDIT_VISA" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("CREDIT_VISA")}
+                >
+                  <CreditCard /> Visa
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "CREDIT_MASTERCARD" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("CREDIT_MASTERCARD")}
+                >
+                  <CreditCard /> Mastercard
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "CREDIT_HIPER" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("CREDIT_HIPER")}
+                >
+                  <CreditCard /> Hiper
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "CREDIT_HIPERCARD" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("CREDIT_HIPERCARD")}
+                >
+                  <CreditCard /> Hipercard
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "CREDIT_AMEX" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("CREDIT_AMEX")}
+                >
+                  <CreditCard /> American Express
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <strong>VR</strong>
+              <div
+                className="fulfillment payment-methods"
+                style={{ marginTop: 8 }}
+              >
+                <button
+                  type="button"
+                  className={paymentMethod === "VR_ALIMENTACAO" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("VR_ALIMENTACAO")}
+                >
+                  <CreditCard /> Alimentação
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "VR_REFEICAO" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("VR_REFEICAO")}
+                >
+                  <CreditCard /> Refeição
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <strong>Pluxee</strong>
+              <div
+                className="fulfillment payment-methods"
+                style={{ marginTop: 8 }}
+              >
+                <button
+                  type="button"
+                  className={paymentMethod === "PLUXEE_ALIMENTACAO" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("PLUXEE_ALIMENTACAO")}
+                >
+                  <CreditCard /> Alimentação
+                </button>
+
+                <button
+                  type="button"
+                  className={paymentMethod === "PLUXEE_REFEICAO" ? "selected" : ""}
+                  onClick={() => setPaymentMethod("PLUXEE_REFEICAO")}
+                >
+                  <CreditCard /> Refeição
+                </button>
+              </div>
+            </div>
           </div>
+
+          <p className="payment-note">
+            {paymentMethod === "PIX"
+              ? store.data?.settings.pixPaymentMode === "MANUAL"
+                ? "Pix direto para a chave da loja."
+                : "Pagamento por Pix com confirmação automática."
+              : paymentMethod === "CASH"
+                ? needsChange && cashChangeFor
+                  ? `Dinheiro na entrega · troco para R$ ${Number(
+                      cashChangeFor,
+                    ).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`
+                  : "Pagamento em dinheiro na entrega."
+                : `${paymentMethodLabels[paymentMethod]} na entrega.`}
+          </p>
+
 
 
           <label className="field full">

@@ -47,6 +47,17 @@ enum PaymentMethod {
   VR_ALIMENTACAO
   VR_REFEICAO
   PLUXEE
+  DEBIT_ELO
+  DEBIT_VISA
+  DEBIT_MASTERCARD
+  CREDIT_ELO
+  CREDIT_VISA
+  CREDIT_MASTERCARD
+  CREDIT_HIPER
+  CREDIT_HIPERCARD
+  CREDIT_AMEX
+  PLUXEE_ALIMENTACAO
+  PLUXEE_REFEICAO
 }
 
 enum PixPaymentMode {
@@ -319,6 +330,7 @@ model Payment {
   status            PaymentStatus @default(PENDING)
   statusDetail      String?
   amountCents       Int
+  cashChangeForCents Int?
   qrCode            String?
   qrCodeBase64      String?
   ticketUrl         String?

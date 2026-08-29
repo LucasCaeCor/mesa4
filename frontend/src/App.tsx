@@ -21,7 +21,7 @@ function ProtectedAdmin({
 }: {
   children: ReactNode;
 }) {
-  return sessionStorage.getItem("mesa4.admin.token") ? (
+  return localStorage.getItem("mesa4.admin.token") ? (
     <>{children}</>
   ) : (
     <Navigate to="/admin/login" replace />

@@ -99,8 +99,7 @@ export function adminApi<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = sessionStorage.getItem(
-    "mesa4.admin.token",
+  const token = localStorage.getItem("mesa4.admin.token",
   );
   const headers = new Headers(init.headers);
 

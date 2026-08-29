@@ -62,8 +62,7 @@ export function AdminLoginPage() {
       data,
       variables,
     ) {
-      sessionStorage.setItem(
-        "mesa4.admin.token",
+      localStorage.setItem("mesa4.admin.token",
         data.token,
       );
 

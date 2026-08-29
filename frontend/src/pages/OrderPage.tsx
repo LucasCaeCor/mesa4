@@ -25,7 +25,18 @@ type PaymentMethod =
   | "TICKET"
   | "VR_ALIMENTACAO"
   | "VR_REFEICAO"
-  | "PLUXEE";
+  | "PLUXEE"
+  | "DEBIT_ELO"
+  | "DEBIT_VISA"
+  | "DEBIT_MASTERCARD"
+  | "CREDIT_ELO"
+  | "CREDIT_VISA"
+  | "CREDIT_MASTERCARD"
+  | "CREDIT_HIPER"
+  | "CREDIT_HIPERCARD"
+  | "CREDIT_AMEX"
+  | "PLUXEE_ALIMENTACAO"
+  | "PLUXEE_REFEICAO";
 
 type Result = {
   order: {
@@ -56,6 +67,7 @@ type Result = {
     method: PaymentMethod;
     status: string;
     statusDetail?: string;
+    cashChangeForCents?: number | null;
     reportedAt?: string;
     qrCode?: string;
     qrCodeBase64?: string;
@@ -75,16 +87,27 @@ const labels: Record<OrderStatus, string> = {
 };
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
-  PIX: "Pix",
-  CASH: "Dinheiro na entrega",
-  CARD: "Cartão na entrega",
-  DEBIT: "Débito na entrega",
-  CREDIT: "Crédito na entrega",
-  TICKET: "Ticket na entrega",
-  VR_ALIMENTACAO: "VR Alimentação",
-  VR_REFEICAO: "VR Refeição",
-  PLUXEE: "Pluxee",
-};
+    PIX: "Pix",
+    CASH: "Dinheiro",
+    CARD: "Cartão",
+    DEBIT: "Débito",
+    CREDIT: "Crédito",
+    TICKET: "Ticket",
+    VR_ALIMENTACAO: "VR Alimentação",
+    VR_REFEICAO: "VR Refeição",
+    PLUXEE: "Pluxee",
+    DEBIT_ELO: "Débito · Elo",
+    DEBIT_VISA: "Débito · Visa",
+    DEBIT_MASTERCARD: "Débito · Mastercard",
+    CREDIT_ELO: "Crédito · Elo",
+    CREDIT_VISA: "Crédito · Visa",
+    CREDIT_MASTERCARD: "Crédito · Mastercard",
+    CREDIT_HIPER: "Crédito · Hiper",
+    CREDIT_HIPERCARD: "Crédito · Hipercard",
+    CREDIT_AMEX: "Crédito · American Express",
+    PLUXEE_ALIMENTACAO: "Pluxee Alimentação",
+    PLUXEE_REFEICAO: "Pluxee Refeição",
+  };
 
 export function OrderPage() {
   const { publicId = "" } = useParams();
@@ -181,6 +204,17 @@ export function OrderPage() {
               data.payment.method}
           </p>
         )}
+
+        {/* MESA4_ORDER_CASH_CHANGE_V19 */}
+        {data.payment?.method === "CASH" &&
+          data.payment.cashChangeForCents && (
+            <p className="payment-note">
+              <strong>Troco para:</strong>{" "}
+              {formatMoney(
+                data.payment.cashChangeForCents,
+              )}
+            </p>
+          )}
 
         {data.order.status === "PENDING_PAYMENT" &&
           data.payment?.method === "PIX" &&

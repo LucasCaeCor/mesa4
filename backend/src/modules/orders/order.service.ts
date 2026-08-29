@@ -148,6 +148,19 @@ export async function createOrder(input: CreateOrderInput) {
   if (subtotalCents < settings.minimumOrderCents) throw new HttpError(422, "Pedido abaixo do valor mínimo da loja", "MINIMUM_ORDER");
 
   const totalCents = subtotalCents + deliveryFeeCents;
+
+  /* MESA4_CASH_CHANGE_VALIDATION_V19 */
+  if (
+    input.paymentMethod === "CASH" &&
+    input.cashChangeForCents !== undefined &&
+    input.cashChangeForCents < totalCents
+  ) {
+    throw new HttpError(
+      422,
+      "O valor informado para troco deve ser maior ou igual ao total do pedido",
+      "INVALID_CASH_CHANGE",
+    );
+  }
   const publicId = createPublicOrderId();
   const trackingToken = createTrackingToken();
   const isPix = input.paymentMethod === "PIX";
@@ -209,6 +222,10 @@ export async function createOrder(input: CreateOrderInput) {
               ? "MANUAL_PIX"
               : "MERCADO_PAGO",
           method: input.paymentMethod,
+          cashChangeForCents:
+            input.paymentMethod === "CASH"
+              ? input.cashChangeForCents
+              : undefined,
           amountCents: totalCents,
           idempotencyKey,
           status: "PENDING",
@@ -644,6 +661,8 @@ export async function getOrderForCustomer(
             payment.provider,
           method:
             payment.method,
+          cashChangeForCents:
+            payment.cashChangeForCents,
           status: payment.status,
           statusDetail:
             payment.statusDetail,

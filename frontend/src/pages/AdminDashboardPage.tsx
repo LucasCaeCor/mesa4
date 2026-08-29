@@ -37,6 +37,7 @@ type AdminPayment = {
   providerPaymentId?: string;
   status: string;
   statusDetail?: string;
+  cashChangeForCents?: number | null;
   amountCents: number;
   reportedAt?: string;
   createdAt: string;
@@ -253,10 +254,7 @@ function formatDuration(seconds?: number) {
 
 function paymentProviderLabel(payment?: AdminPayment) {
   const labels: Record<string, string> = {
-    PIX:
-      payment?.provider === "MANUAL_PIX"
-        ? "Pix manual"
-        : "Pix",
+    PIX: "Pix",
     CASH: "Dinheiro",
     CARD: "Cartão",
     DEBIT: "Débito",
@@ -265,11 +263,33 @@ function paymentProviderLabel(payment?: AdminPayment) {
     VR_ALIMENTACAO: "VR Alimentação",
     VR_REFEICAO: "VR Refeição",
     PLUXEE: "Pluxee",
+    DEBIT_ELO: "Débito · Elo",
+    DEBIT_VISA: "Débito · Visa",
+    DEBIT_MASTERCARD: "Débito · Mastercard",
+    CREDIT_ELO: "Crédito · Elo",
+    CREDIT_VISA: "Crédito · Visa",
+    CREDIT_MASTERCARD: "Crédito · Mastercard",
+    CREDIT_HIPER: "Crédito · Hiper",
+    CREDIT_HIPERCARD: "Crédito · Hipercard",
+    CREDIT_AMEX: "Crédito · American Express",
+    PLUXEE_ALIMENTACAO: "Pluxee Alimentação",
+    PLUXEE_REFEICAO: "Pluxee Refeição",
   };
 
-  return payment?.method
+  const base = payment?.method
     ? labels[payment.method] ?? payment.method
     : "Não informado";
+
+  if (
+    payment?.method === "CASH" &&
+    payment.cashChangeForCents
+  ) {
+    return `${base} · troco para ${formatMoney(
+      payment.cashChangeForCents,
+    )}`;
+  }
+
+  return base;
 }
 export function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -431,8 +451,7 @@ export function AdminDashboardPage() {
     (orders.error as { status?: number }).status ===
       401
   ) {
-    sessionStorage.removeItem(
-      "mesa4.admin.token",
+    localStorage.removeItem("mesa4.admin.token",
     );
     navigate("/admin/login");
     return null;

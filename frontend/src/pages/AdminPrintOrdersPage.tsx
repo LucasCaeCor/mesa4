@@ -10,18 +10,30 @@ type AdminPayment = {
   id: string;
   provider: string;
   method:
-    | "PIX"
-    | "CASH"
-    | "CARD"
-    | "DEBIT"
-    | "CREDIT"
-    | "TICKET"
-    | "VR_ALIMENTACAO"
-    | "VR_REFEICAO"
-    | "PLUXEE";
+  | "PIX"
+  | "CASH"
+  | "CARD"
+  | "DEBIT"
+  | "CREDIT"
+  | "TICKET"
+  | "VR_ALIMENTACAO"
+  | "VR_REFEICAO"
+  | "PLUXEE"
+  | "DEBIT_ELO"
+  | "DEBIT_VISA"
+  | "DEBIT_MASTERCARD"
+  | "CREDIT_ELO"
+  | "CREDIT_VISA"
+  | "CREDIT_MASTERCARD"
+  | "CREDIT_HIPER"
+  | "CREDIT_HIPERCARD"
+  | "CREDIT_AMEX"
+  | "PLUXEE_ALIMENTACAO"
+  | "PLUXEE_REFEICAO";
   status: string;
   statusDetail?: string;
   amountCents: number;
+  cashChangeForCents?: number | null;
 };
 
 type OrderOption = {
@@ -80,10 +92,7 @@ const statusLabels: Record<OrderStatus, string> = {
 
 function paymentLabel(payment?: AdminPayment) {
   const labels: Record<string, string> = {
-    PIX:
-      payment?.provider === "MANUAL_PIX"
-        ? "Pix manual"
-        : "Pix",
+    PIX: "Pix",
     CASH: "Dinheiro",
     CARD: "Cartão",
     DEBIT: "Débito",
@@ -92,11 +101,33 @@ function paymentLabel(payment?: AdminPayment) {
     VR_ALIMENTACAO: "VR Alimentação",
     VR_REFEICAO: "VR Refeição",
     PLUXEE: "Pluxee",
+    DEBIT_ELO: "Débito · Elo",
+    DEBIT_VISA: "Débito · Visa",
+    DEBIT_MASTERCARD: "Débito · Mastercard",
+    CREDIT_ELO: "Crédito · Elo",
+    CREDIT_VISA: "Crédito · Visa",
+    CREDIT_MASTERCARD: "Crédito · Mastercard",
+    CREDIT_HIPER: "Crédito · Hiper",
+    CREDIT_HIPERCARD: "Crédito · Hipercard",
+    CREDIT_AMEX: "Crédito · American Express",
+    PLUXEE_ALIMENTACAO: "Pluxee Alimentação",
+    PLUXEE_REFEICAO: "Pluxee Refeição",
   };
 
-  return payment?.method
+  const base = payment?.method
     ? labels[payment.method] ?? payment.method
     : "Não informado";
+
+  if (
+    payment?.method === "CASH" &&
+    payment.cashChangeForCents
+  ) {
+    return `${base} · Troco para ${formatMoney(
+      payment.cashChangeForCents,
+    )}`;
+  }
+
+  return base;
 }
 
 function escapeHtml(value: unknown) {
@@ -317,7 +348,7 @@ export function AdminPrintOrdersPage() {
     orders.error &&
     (orders.error as { status?: number }).status === 401
   ) {
-    sessionStorage.removeItem("mesa4.admin.token");
+    localStorage.removeItem("mesa4.admin.token");
     navigate("/admin/login");
     return null;
   }

@@ -34,8 +34,7 @@ export function AdminNav() {
       <button
         type="button"
         onClick={() => {
-          sessionStorage.removeItem(
-            "mesa4.admin.token",
+          localStorage.removeItem("mesa4.admin.token",
           );
           /* MESA4_ANDROID_LOGOUT_CLEAR_V17_2 */
         clearAndroidAdminSession();
