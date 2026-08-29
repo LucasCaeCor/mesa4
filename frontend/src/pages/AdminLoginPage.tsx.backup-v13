@@ -25,6 +25,7 @@ const ADMIN_EMAIL_KEY =
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
+
   const [rememberEmail, setRememberEmail] =
     useState(
       () =>
@@ -41,9 +42,7 @@ export function AdminLoginPage() {
   );
 
   const mutation = useMutation({
-    mutationFn: (
-      input: LoginInput,
-    ) =>
+    mutationFn: (input: LoginInput) =>
       api<LoginResult>(
         "/admin/auth/login",
         {
@@ -58,10 +57,7 @@ export function AdminLoginPage() {
         },
       ),
 
-    onSuccess(
-      data,
-      variables,
-    ) {
+    onSuccess(data, variables) {
       sessionStorage.setItem(
         "mesa4.admin.token",
         data.token,
@@ -146,19 +142,17 @@ export function AdminLoginPage() {
 
         <label className="field">
           <span>
-            Código do Authenticator
+            Authenticator ou recuperação
           </span>
           <input
             name="code"
             inputMode="text"
             autoComplete="one-time-code"
             autoCapitalize="characters"
-            placeholder="6 dígitos ou recuperação"
+            placeholder="123456"
           />
           <small>
-            Deixe em branco somente se esta
-            conta ainda não configurou o
-            Authenticator.
+            Obrigatório quando o 2FA já estiver configurado.
           </small>
         </label>
 
@@ -179,9 +173,9 @@ export function AdminLoginPage() {
         </label>
 
         <small className="admin-password-manager-help">
-          Cada administrador entra com
-          sua própria conta e seu próprio
-          código do Authenticator.
+          O navegador pode salvar e
+          preencher sua senha. A senha
+          não é armazenada pelo Mesa IV.
         </small>
 
         {mutation.error && (

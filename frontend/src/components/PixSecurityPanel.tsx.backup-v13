@@ -252,7 +252,7 @@ export function PixSecurityPanel({
             Segurança financeira
           </small>
           <h2>
-            Authenticator desta conta
+            Proteção do PIX
           </h2>
         </div>
 

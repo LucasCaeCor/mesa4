@@ -13,7 +13,6 @@ import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { AdminMenuPage } from "./pages/AdminMenuPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
-import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AdminPrintOrdersPage } from "./pages/AdminPrintOrdersPage";
 
 function ProtectedAdmin({
@@ -69,7 +68,7 @@ export default function App() {
             </ProtectedAdmin>
           }
         />
-        <Route path="/admin/administradores" element={<ProtectedAdmin><AdminUsersPage /></ProtectedAdmin>} /><Route
+        <Route
           path="/admin/configuracoes"
           element={
             <ProtectedAdmin>

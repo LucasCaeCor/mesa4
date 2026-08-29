@@ -1,4 +1,10 @@
-import { ClipboardList, LogOut, Printer, Settings, UtensilsCrossed, Users } from "lucide-react";
+import {
+  ClipboardList,
+  LogOut,
+  Printer,
+  Settings,
+  UtensilsCrossed,
+} from "lucide-react";
 import {
   NavLink,
   useNavigate,
@@ -24,8 +30,7 @@ export function AdminNav() {
         Impressão
       </NavLink>
 
-      <NavLink to="/admin/administradores"><Users />Administradores</NavLink>
-    <NavLink to="/admin/configuracoes">
+      <NavLink to="/admin/configuracoes">
         <Settings />
         Configurações
       </NavLink>
