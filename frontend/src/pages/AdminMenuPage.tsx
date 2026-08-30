@@ -1022,13 +1022,13 @@ body: JSON.stringify(product),
         </div>
       </section>
 
-      <section className="category-management-section">
+            <section className="category-management-section">
         <div className="section-title">
           <div>
             <small>
-              Edite ou controle a visibilidade
+              Categorias e produtos organizados
             </small>
-            <h2>Categorias cadastradas</h2>
+            <h2>Cardápio por categoria</h2>
           </div>
 
           <span>
@@ -1036,7 +1036,7 @@ body: JSON.stringify(product),
           </span>
         </div>
 
-        <div className="category-management-list">
+        <div className="category-management-list category-product-list">
           {categories.isLoading && (
             <p>Carregando categorias...</p>
           )}
@@ -1047,68 +1047,334 @@ body: JSON.stringify(product),
             </div>
           )}
 
-          {categories.data?.map((category) => {
-            const productCount =
-              products.data?.filter(
-                (product) =>
-                  product.categoryId === category.id,
-              ).length ?? 0;
+          {categories.data
+            ?.slice()
+            .sort(
+              (a, b) =>
+                a.position - b.position,
+            )
+            .map((category) => {
+              const categoryProducts =
+                (products.data ?? [])
+                  .filter(
+                    (product) =>
+                      product.categoryId ===
+                      category.id,
+                  )
+                  .slice()
+                  .sort(
+                    (a, b) =>
+                      a.position -
+                      b.position,
+                  );
 
-            return (
-              <article
-                className={`category-management-item ${
-                  category.active ? "" : "inactive"
-                }`}
-                key={category.id}
-              >
-                <span className="category-status-dot" />
+              return (
+                <article
+                  className={`category-management-item category-with-products ${
+                    category.active
+                      ? ""
+                      : "inactive"
+                  }`}
+                  key={category.id}
+                >
+                  <div className="category-management-head">
+                    <span className="category-status-dot" />
 
-                <div className="category-management-info">
-                  <strong>{category.name}</strong>
-                  <small>
-                    {productCount === 1
-                      ? "1 produto"
-                      : `${productCount} produtos`}
-                    {" · "}
-                    posição {category.position}
-                  </small>
-                </div>
+                    <div className="category-management-info">
+                      <strong>
+                        {category.name}
+                      </strong>
 
-                <span className="category-visibility-chip">
-                  {category.active
-                    ? "Visível no cardápio"
-                    : "Desativada"}
-                </span>
+                      <small>
+                        {categoryProducts.length === 1
+                          ? "1 produto"
+                          : `${categoryProducts.length} produtos`}
+                        {" · "}
+                        posição {category.position}
+                      </small>
+                    </div>
 
-                <div className="category-management-actions">
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={patch.isPending}
-                    onClick={() =>
-                      editCategory(category)
-                    }
-                  >
-                    <Pencil />
-                    Editar
-                  </button>
+                    <span className="category-visibility-chip">
+                      {category.active
+                        ? "Visível no cardápio"
+                        : "Desativada"}
+                    </span>
 
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={patch.isPending}
-                    onClick={() =>
-                      toggleCategory(category)
-                    }
-                  >
-                    {category.active
-                      ? "Desativar"
-                      : "Ativar"}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+                    <div className="category-management-actions">
+                      <button
+                        className="secondary"
+                        type="button"
+                        disabled={
+                          patch.isPending
+                        }
+                        onClick={() =>
+                          editCategory(
+                            category,
+                          )
+                        }
+                      >
+                        <Pencil />
+                        Editar
+                      </button>
+
+                      <button
+                        className="secondary"
+                        type="button"
+                        disabled={
+                          patch.isPending
+                        }
+                        onClick={() =>
+                          toggleCategory(
+                            category,
+                          )
+                        }
+                      >
+                        {category.active
+                          ? "Desativar"
+                          : "Ativar"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="category-products-nested">
+                    {categoryProducts.length === 0 ? (
+                      <div className="category-products-empty">
+                        Nenhum produto nesta categoria.
+                      </div>
+                    ) : (
+                      categoryProducts.map(
+                        (product) => (
+                          <article
+                            className={`admin-product nested-admin-product ${
+                              !product.active
+                                ? "inactive-product"
+                                : ""
+                            }`}
+                            key={product.id}
+                          >
+                            <div className="admin-product-main">
+                              {product.imageUrl ? (
+                                <img
+                                  src={
+                                    product.imageUrl
+                                  }
+                                  alt={
+                                    product.name
+                                  }
+                                />
+                              ) : (
+                                <div className="admin-product-placeholder">
+                                  🍔
+                                </div>
+                              )}
+
+                              <div>
+                                <div className="nested-product-meta">
+                                  <small>
+                                    posição{" "}
+                                    {product.position}
+                                  </small>
+
+                                  {!product.active && (
+                                    <span className="nested-product-chip">
+                                      Oculto
+                                    </span>
+                                  )}
+
+                                  {product.soldOut && (
+                                    <span className="nested-product-chip sold-out">
+                                      Esgotado
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h3>
+                                  {product.name}
+                                </h3>
+
+                                <p>
+                                  {
+                                    product.description
+                                  }
+                                </p>
+
+                                <strong>
+                                  {formatMoney(
+                                    product.priceCents,
+                                  )}
+                                </strong>
+
+                                {product.suggestAtCheckout && (
+                                  <span className="product-suggestion-badge">
+                                    Sugestão no
+                                    carrinho
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="admin-product-actions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() =>
+                                  openEdit(
+                                    product,
+                                  )
+                                }
+                              >
+                                <Pencil />
+                                Editar
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() =>
+                                  patch.mutate({
+                                    path:
+                                      `/admin/products/${product.id}`,
+                                    body: {
+                                      soldOut:
+                                        !product.soldOut,
+                                    },
+                                  })
+                                }
+                              >
+                                {product.soldOut
+                                  ? "Marcar disponível"
+                                  : "Marcar esgotado"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() =>
+                                  patch.mutate({
+                                    path:
+                                      `/admin/products/${product.id}`,
+                                    body: {
+                                      active:
+                                        !product.active,
+                                    },
+                                  })
+                                }
+                              >
+                                {product.active
+                                  ? "Ocultar"
+                                  : "Publicar"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() =>
+                                  addGroup(
+                                    product.id,
+                                  )
+                                }
+                              >
+                                Adicionar grupo
+                              </button>
+
+                              <button
+                                type="button"
+                                className="icon-button danger"
+                                onClick={() =>
+                                  confirm(
+                                    "Excluir produto?",
+                                  ) &&
+                                  remove.mutate(
+                                    `/admin/products/${product.id}`,
+                                  )
+                                }
+                                aria-label={`Excluir ${product.name}`}
+                              >
+                                <Trash2 />
+                              </button>
+                            </div>
+
+                            {product.optionGroups.map(
+                              (group) => (
+                                <div
+                                  className="admin-option-group"
+                                  key={group.id}
+                                >
+                                  <div>
+                                    <div>
+                                      <strong>
+                                        {
+                                          group.name
+                                        }
+                                      </strong>
+
+                                      {group.libraryManaged && (
+                                        <small>
+                                          Sincronizado
+                                          com a
+                                          biblioteca de
+                                          adicionais
+                                        </small>
+                                      )}
+                                    </div>
+
+                                    {!group.libraryManaged && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          addOption(
+                                            group.id,
+                                          )
+                                        }
+                                      >
+                                        + opção
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {group.options.map(
+                                    (option) => (
+                                      <span
+                                        key={
+                                          option.id
+                                        }
+                                      >
+                                        {
+                                          option.name
+                                        }{" "}
+                                        {option.priceCents >
+                                          0 &&
+                                          `+ ${formatMoney(
+                                            option.priceCents,
+                                          )}`}
+
+                                        {!group.libraryManaged && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              remove.mutate(
+                                                `/admin/options/${option.id}`,
+                                              )
+                                            }
+                                            aria-label={`Excluir ${option.name}`}
+                                          >
+                                            ×
+                                          </button>
+                                        )}
+                                      </span>
+                                    ),
+                                  )}
+                                </div>
+                              ),
+                            )}
+                          </article>
+                        ),
+                      )
+                    )}
+                  </div>
+                </article>
+              );
+            })}
         </div>
       </section>
 
@@ -1301,176 +1567,7 @@ body: JSON.stringify(product),
         </form>
       </section>
 
-      <section className="admin-products">
-        <div className="section-title">
-          <h2>Produtos</h2>
-          <span>
-            {products.data?.length ?? 0} cadastrados
-          </span>
-        </div>
-
-        {products.data?.map((product) => (
-          <article
-            className="admin-product"
-            key={product.id}
-          >
-            <div className="admin-product-main">
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt=""
-                />
-              ) : (
-                <div className="admin-product-placeholder">
-                  🍔
-                </div>
-              )}
-
-              <div>
-                <small>
-                  {product.category.name} · posição{" "}
-                  {product.position}
-                </small>
-                <h3>{product.name}</h3>
-                <p>{product.description}</p>
-                <strong>
-                  {formatMoney(product.priceCents)}
-                </strong>
-                {product.suggestAtCheckout && (
-                  <span className="product-suggestion-badge">
-                    Sugestão no carrinho
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="admin-product-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => openEdit(product)}
-              >
-                <Pencil />
-                Editar
-              </button>
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  patch.mutate({
-                    path:
-                      `/admin/products/${product.id}`,
-                    body: {
-                      soldOut: !product.soldOut,
-                    },
-                  })
-                }
-              >
-                {product.soldOut
-                  ? "Marcar disponível"
-                  : "Marcar esgotado"}
-              </button>
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  patch.mutate({
-                    path:
-                      `/admin/products/${product.id}`,
-                    body: {
-                      active: !product.active,
-                    },
-                  })
-                }
-              >
-                {product.active
-                  ? "Ocultar"
-                  : "Publicar"}
-              </button>
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  addGroup(product.id)
-                }
-              >
-                Adicionar grupo
-              </button>
-
-              <button
-                type="button"
-                className="icon-button danger"
-                onClick={() =>
-                  confirm("Excluir produto?") &&
-                  remove.mutate(
-                    `/admin/products/${product.id}`,
-                  )
-                }
-                aria-label={`Excluir ${product.name}`}
-              >
-                <Trash2 />
-              </button>
-            </div>
-
-            {product.optionGroups.map((group) => (
-              <div
-                className="admin-option-group"
-                key={group.id}
-              >
-                <div>
-                  <div>
-                    <strong>{group.name}</strong>
-                    {group.libraryManaged && (
-                      <small>
-                        Sincronizado com a biblioteca de
-                        adicionais
-                      </small>
-                    )}
-                  </div>
-
-                  {!group.libraryManaged && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        addOption(group.id)
-                      }
-                    >
-                      + opção
-                    </button>
-                  )}
-                </div>
-
-                {group.options.map((option) => (
-                  <span key={option.id}>
-                    {option.name}{" "}
-                    {option.priceCents > 0 &&
-                      `+ ${formatMoney(
-                        option.priceCents,
-                      )}`}
-
-                    {!group.libraryManaged && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          remove.mutate(
-                            `/admin/options/${option.id}`,
-                          )
-                        }
-                        aria-label={`Excluir ${option.name}`}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </article>
-        ))}
-      </section>
+      
 
       {editingProduct && (
         <div
