@@ -19,6 +19,7 @@ import {
   RefreshCw,
   UserRound,
   X,
+  Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AdminNav } from "../components/AdminNav";
@@ -402,6 +403,30 @@ export function AdminDashboardPage() {
     },
   });
 
+
+  /* MESA4_DELETE_CANCELED_ORDER_UI_V31 */
+  const deleteOrder = useMutation({
+    mutationFn: (orderId: string) =>
+      adminApi<{
+        ok: true;
+        deletedOrderId: string;
+        publicId: string;
+      }>(`/admin/orders/${orderId}`, {
+        method: "DELETE",
+      }),
+    onSuccess() {
+      setSelectedOrderId(null);
+
+      queryClient.invalidateQueries({
+        queryKey: ["admin-orders"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["admin-dashboard"],
+      });
+    },
+  });
+
   useEffect(() => {
     if (!selectedOrder && selectedOrderId) {
       setSelectedOrderId(null);
@@ -463,7 +488,47 @@ export function AdminDashboardPage() {
     order: AdminOrder,
     status: OrderStatus,
   ) {
+    if (
+      status === "CANCELED" &&
+      !window.confirm(
+        `Cancelar o pedido ${order.publicId}?\n\nDepois de cancelado, você poderá excluí-lo permanentemente.`,
+      )
+    ) {
+      return;
+    }
+
     update.mutate({ order, status });
+  }
+
+  function deleteCanceledOrder(
+    order: AdminOrder,
+  ) {
+    if (order.status !== "CANCELED") {
+      window.alert(
+        "Somente pedidos cancelados podem ser excluídos.",
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Excluir permanentemente o pedido ${order.publicId}?\n\nEssa ação apaga o pedido, itens, adicionais, pagamentos, histórico e registros vinculados. Não é possível desfazer.`,
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const finalConfirmation =
+      window.confirm(
+        "Última confirmação: excluir definitivamente este pedido cancelado?",
+      );
+
+    if (!finalConfirmation) {
+      return;
+    }
+
+    deleteOrder.mutate(order.id);
   }
 
   function renderStatusButtons(order: AdminOrder) {
@@ -799,13 +864,37 @@ export function AdminDashboardPage() {
                   <MessageCircle />
                   Avisar cliente
                 </button>
-              </div>
+                              {order.status ===
+                  "CANCELED" && (
+                  <button
+                    className="danger-order-delete"
+                    type="button"
+                    disabled={
+                      deleteOrder.isPending
+                    }
+                    onClick={() =>
+                      deleteCanceledOrder(
+                        order,
+                      )
+                    }
+                  >
+                    <Trash2 />
+                    Excluir pedido
+                  </button>
+                )}
+</div>
 
               {order.whatsappOptIn === false && (
                 <small className="whatsapp-consent-warning">
                   O cliente não autorizou atualizações
                   pelo WhatsApp.
                 </small>
+              )}
+
+              {deleteOrder.error && (
+                <p className="error-text">
+                  {deleteOrder.error.message}
+                </p>
               )}
 
               {update.error && (
@@ -1123,7 +1212,39 @@ export function AdminDashboardPage() {
                 {renderStatusButtons(selectedOrder)}
               </div>
 
-              <button
+                            {selectedOrder.status ===
+                "CANCELED" && (
+                <div className="canceled-order-danger-zone">
+                  <div>
+                    <strong>
+                      Pedido cancelado
+                    </strong>
+                    <small>
+                      Exclua somente se não precisar mais manter este pedido no painel.
+                    </small>
+                  </div>
+
+                  <button
+                    className="danger-order-delete"
+                    type="button"
+                    disabled={
+                      deleteOrder.isPending
+                    }
+                    onClick={() =>
+                      deleteCanceledOrder(
+                        selectedOrder,
+                      )
+                    }
+                  >
+                    <Trash2 />
+                    {deleteOrder.isPending
+                      ? "Excluindo..."
+                      : "Excluir pedido permanentemente"}
+                  </button>
+                </div>
+              )}
+
+<button
                 className="primary"
                 type="button"
                 disabled={

@@ -3649,3 +3649,74 @@
     padding: 12px;
   }
 }
+
+
+/* MESA4_DELETE_CANCELED_ORDER_V31_STYLES */
+.danger-order-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 95, 95, 0.38);
+  border-radius: 12px;
+  background: rgba(255, 76, 76, 0.09);
+  color: #ff9b9b;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.danger-order-delete:hover:not(:disabled) {
+  background: rgba(255, 76, 76, 0.17);
+  border-color: rgba(255, 110, 110, 0.55);
+}
+
+.danger-order-delete:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.danger-order-delete svg {
+  width: 17px;
+  height: 17px;
+}
+
+.canceled-order-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 13px;
+  border: 1px solid rgba(255, 95, 95, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 76, 76, 0.055);
+}
+
+.canceled-order-danger-zone > div {
+  display: grid;
+  gap: 3px;
+}
+
+.canceled-order-danger-zone strong {
+  color: #ffabab;
+}
+
+.canceled-order-danger-zone small {
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.35;
+}
+
+@media (max-width: 680px) {
+  .canceled-order-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .canceled-order-danger-zone
+    .danger-order-delete {
+    width: 100%;
+  }
+}

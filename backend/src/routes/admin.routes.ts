@@ -768,6 +768,148 @@ app.get("/admin/me", { preHandler: app.authenticateAdmin }, async (request) => (
   );
 
 
+  /* MESA4_DELETE_CANCELED_ORDER_V31 */
+  app.delete(
+    "/admin/orders/:id",
+    { preHandler: app.authenticateAdmin },
+    async (request) => {
+      const { id } = z
+        .object({
+          id: z.string().min(1),
+        })
+        .parse(request.params);
+
+      const order =
+        await prisma.order.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            publicId: true,
+            status: true,
+          },
+        });
+
+      if (!order) {
+        throw new HttpError(
+          404,
+          "Pedido não encontrado",
+          "ORDER_NOT_FOUND",
+        );
+      }
+
+      if (order.status !== "CANCELED") {
+        throw new HttpError(
+          409,
+          "Somente pedidos cancelados podem ser excluídos",
+          "ORDER_MUST_BE_CANCELED",
+        );
+      }
+
+      const [
+        items,
+        payments,
+      ] = await Promise.all([
+        prisma.orderItem.findMany({
+          where: {
+            orderId: id,
+          },
+          select: {
+            id: true,
+          },
+        }),
+        prisma.payment.findMany({
+          where: {
+            orderId: id,
+          },
+          select: {
+            providerPaymentId: true,
+          },
+        }),
+      ]);
+
+      const itemIds =
+        items.map(
+          (item) => item.id,
+        );
+
+      const providerPaymentIds =
+        payments
+          .map(
+            (payment) =>
+              payment.providerPaymentId,
+          )
+          .filter(
+            (
+              providerPaymentId,
+            ): providerPaymentId is string =>
+              Boolean(providerPaymentId),
+          );
+
+      /*
+       * Apaga primeiro os registros filhos.
+       * No MongoDB não devemos depender de cascade implícito.
+       *
+       * A fidelidade do cliente NÃO é removida aqui.
+       * O cancelamento já aconteceu antes desta rota e
+       * deve executar a lógica de restauração de benefício
+       * existente no fluxo de status.
+       */
+      await prisma.$transaction([
+        prisma.orderItemOption.deleteMany({
+          where: {
+            orderItemId: {
+              in: itemIds,
+            },
+          },
+        }),
+        prisma.whatsAppNotification.deleteMany({
+          where: {
+            orderId: id,
+          },
+        }),
+        prisma.orderStatusHistory.deleteMany({
+          where: {
+            orderId: id,
+          },
+        }),
+        prisma.payment.deleteMany({
+          where: {
+            orderId: id,
+          },
+        }),
+        prisma.orderItem.deleteMany({
+          where: {
+            orderId: id,
+          },
+        }),
+        prisma.auditLog.deleteMany({
+          where: {
+            entity: "ORDER",
+            entityId: id,
+          },
+        }),
+        prisma.webhookEvent.deleteMany({
+          where: {
+            resourceId: {
+              in: providerPaymentIds,
+            },
+          },
+        }),
+        prisma.order.delete({
+          where: {
+            id,
+          },
+        }),
+      ]);
+
+      return {
+        ok: true,
+        deletedOrderId: id,
+        publicId: order.publicId,
+      };
+    },
+  );
+
   app.post(
     "/admin/orders/:id/whatsapp",
     { preHandler: app.authenticateAdmin },
