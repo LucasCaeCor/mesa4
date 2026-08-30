@@ -3280,3 +3280,226 @@
     display: none;
   }
 }
+
+
+/* MESA4_ADDON_LIBRARY_CLEAN_V28 */
+.addon-library-clean {
+  display: grid;
+  gap: 16px;
+}
+
+.addon-library-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.addon-library-toolbar h2 {
+  margin: 3px 0 0;
+}
+
+.addon-library-toolbar p {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.addon-library-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.addon-library-toolbar-actions > span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+}
+
+.addon-accordion-list {
+  display: grid;
+  gap: 10px;
+}
+
+.addon-accordion {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.addon-accordion.inactive {
+  opacity: 0.7;
+}
+
+.addon-accordion-summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns:
+    auto minmax(170px, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.addon-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.addon-accordion-summary::after {
+  content: "⌄";
+  font-size: 19px;
+  line-height: 1;
+  opacity: 0.62;
+  transition: transform 0.18s ease;
+}
+
+.addon-accordion[open]
+  .addon-accordion-summary::after {
+  transform: rotate(180deg);
+}
+
+.addon-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #72d69a;
+  box-shadow: 0 0 0 4px rgba(114, 214, 154, 0.1);
+}
+
+.addon-accordion.inactive
+  .addon-status-dot {
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: none;
+}
+
+.addon-accordion-main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.addon-accordion-main small {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.addon-accordion-price {
+  white-space: nowrap;
+}
+
+.addon-accordion-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(114, 214, 154, 0.1);
+  color: #92e2b1;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.addon-accordion.inactive
+  .addon-accordion-status {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.addon-accordion-expand {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.addon-accordion[open]
+  .addon-accordion-expand {
+  visibility: hidden;
+}
+
+.addon-accordion-body {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.addon-accordion-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.addon-accordion-details > div {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.addon-accordion-details small {
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.addon-accordion-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.addon-create-modal {
+  width: min(620px, calc(100vw - 28px));
+}
+
+@media (max-width: 760px) {
+  .addon-library-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .addon-library-toolbar-actions {
+    justify-content: space-between;
+  }
+
+  .addon-accordion-summary {
+    grid-template-columns:
+      auto minmax(0, 1fr) auto;
+  }
+
+  .addon-accordion-status,
+  .addon-accordion-expand {
+    display: none;
+  }
+
+  .addon-accordion-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .addon-library-toolbar-actions {
+    display: grid;
+  }
+
+  .addon-library-toolbar-actions > button {
+    width: 100%;
+  }
+
+  .addon-accordion-price {
+    font-size: 13px;
+  }
+
+  .addon-accordion-actions {
+    display: grid;
+  }
+
+  .addon-accordion-actions > button {
+    width: 100%;
+  }
+}

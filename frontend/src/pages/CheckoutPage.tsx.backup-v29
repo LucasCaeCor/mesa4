@@ -7,7 +7,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { FormEvent, useMemo, useRef, useState, useEffect } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatMoney } from "../lib/format";
@@ -249,41 +249,16 @@ export function CheckoutPage() {
     city.trim().length >= 2 &&
     stateCode.trim().length === 2;
 
-
-  /* MESA4_AUTO_DELIVERY_V29_1 */
-  useEffect(() => {
-    if (
-      fulfillment !== "DELIVERY" ||
-      !dynamicDeliveryEnabled ||
-      !canCalculateDelivery
-    ) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      deliveryQuote.mutate();
-    }, 650);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [
-    fulfillment,
-    dynamicDeliveryEnabled,
-    canCalculateDelivery,
-    postalCode,
-    street,
-    number,
-    neighborhood,
-    city,
-    stateCode,
-  ]);
-
   function searchPostalCode() {
     const digits = postalCode.replace(/\D/g, "");
     if (digits.length === 8) cepLookup.mutate(digits);
   }
 
+  function calculateDelivery() {
+    if (canCalculateDelivery) {
+      deliveryQuote.mutate();
+    }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -449,6 +424,11 @@ export function CheckoutPage() {
                       deliveryQuote.reset();
                       setNumber(event.target.value);
                     }}
+                    onBlur={() => {
+                      if (dynamicDeliveryEnabled && canCalculateDelivery) {
+                        calculateDelivery();
+                      }
+                    }}
                     required
                   />
                 </label>
@@ -503,27 +483,16 @@ export function CheckoutPage() {
 
               {dynamicDeliveryEnabled && (
                 <div className="delivery-quote-box">
-                  {!canCalculateDelivery &&
-                    !deliveryQuote.data && (
-                      <div className="delivery-auto-status">
-                        <span className="delivery-auto-dot" />
-                        <span>
-                          Preencha o endereço para calcular a entrega.
-                        </span>
-                      </div>
-                    )}
-
-                  {canCalculateDelivery &&
-                    deliveryQuote.isPending && (
-                      <div className="delivery-auto-status calculating">
-                        <span className="delivery-auto-spinner" />
-                        <span>
-                          Calculando entrega automaticamente...
-                        </span>
-                      </div>
-                    )}
-
-                  
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={calculateDelivery}
+                    disabled={!canCalculateDelivery || deliveryQuote.isPending}
+                  >
+                    {deliveryQuote.isPending
+                      ? "Calculando entrega..."
+                      : "Calcular valor da entrega"}
+                  </button>
 
                   {deliveryQuote.data?.mode === "DISTANCE" && (
                     <div className="delivery-quote-result">
@@ -1044,9 +1013,7 @@ export function CheckoutPage() {
               : fulfillment === "DELIVERY" &&
                   dynamicDeliveryEnabled &&
                   !deliveryQuote.data
-                ? canCalculateDelivery
-                  ? "Calculando entrega..."
-                  : "Preencha o endereço para continuar"
+                ? "Calcule a entrega para continuar"
                 : `Finalizar pedido · ${formatMoney(total)}`}
           </button>
         </aside>

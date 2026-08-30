@@ -249,14 +249,16 @@ export function CheckoutPage() {
     city.trim().length >= 2 &&
     stateCode.trim().length === 2;
 
-
-  /* MESA4_AUTO_DELIVERY_V29_1 */
+  /* MESA4_AUTO_DELIVERY_V29 */
   useEffect(() => {
     if (
       fulfillment !== "DELIVERY" ||
-      !dynamicDeliveryEnabled ||
-      !canCalculateDelivery
+      !dynamicDeliveryEnabled
     ) {
+      return;
+    }
+
+    if (!canCalculateDelivery) {
       return;
     }
 
@@ -283,9 +285,7 @@ export function CheckoutPage() {
     const digits = postalCode.replace(/\D/g, "");
     if (digits.length === 8) cepLookup.mutate(digits);
   }
-
-
-  function submit(event: FormEvent<HTMLFormElement>) {
+function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!isStoreOpen) {
@@ -502,42 +502,59 @@ export function CheckoutPage() {
               </div>
 
               {dynamicDeliveryEnabled && (
-                <div className="delivery-quote-box">
-                  {!canCalculateDelivery &&
-                    !deliveryQuote.data && (
-                      <div className="delivery-auto-status">
-                        <span className="delivery-auto-dot" />
-                        <span>
-                          Preencha o endereço para calcular a entrega.
-                        </span>
-                      </div>
-                    )}
-
-                  {canCalculateDelivery &&
-                    deliveryQuote.isPending && (
-                      <div className="delivery-auto-status calculating">
-                        <span className="delivery-auto-spinner" />
-                        <span>
-                          Calculando entrega automaticamente...
-                        </span>
-                      </div>
-                    )}
-
-                  
-
-                  {deliveryQuote.data?.mode === "DISTANCE" && (
-                    <div className="delivery-quote-result">
-                      <strong>
-                        Entrega: {formatMoney(deliveryQuote.data.deliveryFeeCents)}
-                      </strong>
+                <div
+                  className="delivery-quote-box auto-delivery-quote"
+                  data-auto-delivery-v29="true"
+                >
+                  {!canCalculateDelivery && !deliveryQuote.data && (
+                    <div className="delivery-auto-status">
+                      <span className="delivery-auto-dot" />
                       <span>
-                        {deliveryQuote.data.distanceKm?.toFixed(1)} km
-                        {deliveryQuote.data.durationMinutes
-                          ? ` · cerca de ${deliveryQuote.data.durationMinutes} min de trajeto`
-                          : ""}
+                        Preencha o endereço para calcular a entrega.
                       </span>
                     </div>
                   )}
+
+                  {canCalculateDelivery && deliveryQuote.isPending && (
+                    <div className="delivery-auto-status calculating">
+                      <span className="delivery-auto-spinner" />
+                      <span>Calculando entrega automaticamente...</span>
+                    </div>
+                  )}
+
+                  {deliveryQuote.data && (
+                    <div className="delivery-quote-result">
+                      <strong>
+                        Entrega:{" "}
+                        {formatMoney(
+                          deliveryQuote.data.deliveryFeeCents,
+                        )}
+                      </strong>
+
+                      {deliveryQuote.data.mode === "DISTANCE" && (
+                        <span>
+                          {deliveryQuote.data.distanceKm?.toFixed(1)} km
+                          {deliveryQuote.data.durationMinutes
+                            ? ` · cerca de ${deliveryQuote.data.durationMinutes} min de trajeto`
+                            : ""}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {deliveryQuote.error && (
+                    <div className="delivery-auto-error">
+                      <p className="error-text">
+                        {deliveryQuote.error.message}
+                      </p>
+                      <small>
+                        Confira CEP, rua, número, bairro, cidade e estado.
+                        Ao corrigir o endereço, o cálculo será tentado novamente.
+                      </small>
+                    </div>
+                  )}
+                </div>
+              )}
 
                   {deliveryQuote.error && (
                     <p className="error-text">
