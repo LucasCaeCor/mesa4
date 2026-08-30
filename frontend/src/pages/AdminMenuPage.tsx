@@ -405,6 +405,9 @@ function ImageUploadField({
 /* MESA4_IMAGE_URL_AND_CHECKOUT_SUGGESTION */
 export function AdminMenuPage() {
   const client = useQueryClient();
+  const [createModal, setCreateModal] = useState<
+    "category" | "product" | null
+  >(null);
     const [
     editingProduct,
     setEditingProduct,
@@ -570,7 +573,10 @@ body: JSON.stringify(product),
           Number(form.get("position")) || 0,
       },
       {
-        onSuccess: () => formElement.reset(),
+        onSuccess: () => {
+          formElement.reset();
+          setCreateModal(null);
+        },
       },
     );
   }
@@ -703,6 +709,7 @@ body: JSON.stringify(product),
 
       formElement.reset();
       setCreateImage(null);
+      setCreateModal(null);
     } catch {
       // O erro da mutation aparece no formulário.
     }
@@ -1022,11 +1029,57 @@ body: JSON.stringify(product),
         </div>
       </section>
 
-            <section className="category-management-section">
+            
+
+      
+
+      
+
+            <section className="menu-create-toolbar">
+        <div>
+          <small>Cadastro rápido</small>
+          <h2>Adicionar ao cardápio</h2>
+          <p>
+            Abra o formulário somente quando precisar criar algo.
+          </p>
+        </div>
+
+        <div className="menu-create-actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() =>
+              setCreateModal("category")
+            }
+          >
+            <Plus />
+            Nova categoria
+          </button>
+
+          <button
+            type="button"
+            className="primary"
+            disabled={
+              (categories.data?.length ?? 0) === 0
+            }
+            onClick={() =>
+              setCreateModal("product")
+            }
+          >
+            <Plus />
+            Novo produto
+          </button>
+        </div>
+      </section>
+
+      <section
+        className="category-accordion-section"
+        data-admin-category-accordion="v26-2"
+      >
         <div className="section-title">
           <div>
             <small>
-              Categorias e produtos organizados
+              Clique na categoria para expandir
             </small>
             <h2>Cardápio por categoria</h2>
           </div>
@@ -1036,7 +1089,7 @@ body: JSON.stringify(product),
           </span>
         </div>
 
-        <div className="category-management-list category-product-list">
+        <div className="category-accordion-list">
           {categories.isLoading && (
             <p>Carregando categorias...</p>
           )}
@@ -1068,16 +1121,23 @@ body: JSON.stringify(product),
                       b.position,
                   );
 
+              const availableProducts =
+                categoryProducts.filter(
+                  (product) =>
+                    product.active &&
+                    !product.soldOut,
+                ).length;
+
               return (
-                <article
-                  className={`category-management-item category-with-products ${
+                <details
+                  className={`category-accordion ${
                     category.active
                       ? ""
                       : "inactive"
                   }`}
                   key={category.id}
                 >
-                  <div className="category-management-head">
+                  <summary className="category-accordion-summary">
                     <span className="category-status-dot" />
 
                     <div className="category-management-info">
@@ -1090,36 +1150,42 @@ body: JSON.stringify(product),
                           ? "1 produto"
                           : `${categoryProducts.length} produtos`}
                         {" · "}
+                        {availableProducts} disponíveis
+                        {" · "}
                         posição {category.position}
                       </small>
                     </div>
 
                     <span className="category-visibility-chip">
                       {category.active
-                        ? "Visível no cardápio"
+                        ? "Visível"
                         : "Desativada"}
                     </span>
 
-                    <div className="category-management-actions">
+                    <span className="category-expand-label">
+                      Ver produtos
+                    </span>
+                  </summary>
+
+                  <div className="category-accordion-body">
+                    <div className="category-accordion-actions">
                       <button
-                        className="secondary"
                         type="button"
+                        className="secondary"
                         disabled={
                           patch.isPending
                         }
                         onClick={() =>
-                          editCategory(
-                            category,
-                          )
+                          editCategory(category)
                         }
                       >
                         <Pencil />
-                        Editar
+                        Editar categoria
                       </button>
 
                       <button
-                        className="secondary"
                         type="button"
+                        className="secondary"
                         disabled={
                           patch.isPending
                         }
@@ -1130,446 +1196,549 @@ body: JSON.stringify(product),
                         }
                       >
                         {category.active
-                          ? "Desativar"
-                          : "Ativar"}
+                          ? "Desativar categoria"
+                          : "Ativar categoria"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() =>
+                          setCreateModal(
+                            "product",
+                          )
+                        }
+                      >
+                        <Plus />
+                        Novo produto
                       </button>
                     </div>
-                  </div>
 
-                  <div className="category-products-nested">
-                    {categoryProducts.length === 0 ? (
-                      <div className="category-products-empty">
-                        Nenhum produto nesta categoria.
-                      </div>
-                    ) : (
-                      categoryProducts.map(
-                        (product) => (
-                          <article
-                            className={`admin-product nested-admin-product ${
-                              !product.active
-                                ? "inactive-product"
-                                : ""
-                            }`}
-                            key={product.id}
-                          >
-                            <div className="admin-product-main">
-                              {product.imageUrl ? (
-                                <img
-                                  src={
-                                    product.imageUrl
-                                  }
-                                  alt={
-                                    product.name
-                                  }
-                                />
-                              ) : (
-                                <div className="admin-product-placeholder">
-                                  🍔
-                                </div>
-                              )}
-
-                              <div>
-                                <div className="nested-product-meta">
-                                  <small>
-                                    posição{" "}
-                                    {product.position}
-                                  </small>
-
-                                  {!product.active && (
-                                    <span className="nested-product-chip">
-                                      Oculto
-                                    </span>
-                                  )}
-
-                                  {product.soldOut && (
-                                    <span className="nested-product-chip sold-out">
-                                      Esgotado
-                                    </span>
-                                  )}
-                                </div>
-
-                                <h3>
-                                  {product.name}
-                                </h3>
-
-                                <p>
-                                  {
-                                    product.description
-                                  }
-                                </p>
-
-                                <strong>
-                                  {formatMoney(
-                                    product.priceCents,
-                                  )}
-                                </strong>
-
-                                {product.suggestAtCheckout && (
-                                  <span className="product-suggestion-badge">
-                                    Sugestão no
-                                    carrinho
-                                  </span>
+                    <div className="category-products-nested">
+                      {categoryProducts.length === 0 ? (
+                        <div className="category-products-empty">
+                          Nenhum produto nesta categoria.
+                        </div>
+                      ) : (
+                        categoryProducts.map(
+                          (product) => (
+                            <article
+                              className={`admin-product nested-admin-product ${
+                                !product.active
+                                  ? "inactive-product"
+                                  : ""
+                              }`}
+                              key={product.id}
+                            >
+                              <div className="admin-product-main">
+                                {product.imageUrl ? (
+                                  <img
+                                    src={
+                                      product.imageUrl
+                                    }
+                                    alt={
+                                      product.name
+                                    }
+                                  />
+                                ) : (
+                                  <div className="admin-product-placeholder">
+                                    🍔
+                                  </div>
                                 )}
-                              </div>
-                            </div>
 
-                            <div className="admin-product-actions">
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() =>
-                                  openEdit(
-                                    product,
-                                  )
-                                }
-                              >
-                                <Pencil />
-                                Editar
-                              </button>
+                                <div>
+                                  <div className="nested-product-meta">
+                                    <small>
+                                      posição{" "}
+                                      {product.position}
+                                    </small>
 
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() =>
-                                  patch.mutate({
-                                    path:
-                                      `/admin/products/${product.id}`,
-                                    body: {
-                                      soldOut:
-                                        !product.soldOut,
-                                    },
-                                  })
-                                }
-                              >
-                                {product.soldOut
-                                  ? "Marcar disponível"
-                                  : "Marcar esgotado"}
-                              </button>
+                                    {!product.active && (
+                                      <span className="nested-product-chip">
+                                        Oculto
+                                      </span>
+                                    )}
 
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() =>
-                                  patch.mutate({
-                                    path:
-                                      `/admin/products/${product.id}`,
-                                    body: {
-                                      active:
-                                        !product.active,
-                                    },
-                                  })
-                                }
-                              >
-                                {product.active
-                                  ? "Ocultar"
-                                  : "Publicar"}
-                              </button>
-
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() =>
-                                  addGroup(
-                                    product.id,
-                                  )
-                                }
-                              >
-                                Adicionar grupo
-                              </button>
-
-                              <button
-                                type="button"
-                                className="icon-button danger"
-                                onClick={() =>
-                                  confirm(
-                                    "Excluir produto?",
-                                  ) &&
-                                  remove.mutate(
-                                    `/admin/products/${product.id}`,
-                                  )
-                                }
-                                aria-label={`Excluir ${product.name}`}
-                              >
-                                <Trash2 />
-                              </button>
-                            </div>
-
-                            {product.optionGroups.map(
-                              (group) => (
-                                <div
-                                  className="admin-option-group"
-                                  key={group.id}
-                                >
-                                  <div>
-                                    <div>
-                                      <strong>
-                                        {
-                                          group.name
-                                        }
-                                      </strong>
-
-                                      {group.libraryManaged && (
-                                        <small>
-                                          Sincronizado
-                                          com a
-                                          biblioteca de
-                                          adicionais
-                                        </small>
-                                      )}
-                                    </div>
-
-                                    {!group.libraryManaged && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          addOption(
-                                            group.id,
-                                          )
-                                        }
-                                      >
-                                        + opção
-                                      </button>
+                                    {product.soldOut && (
+                                      <span className="nested-product-chip sold-out">
+                                        Esgotado
+                                      </span>
                                     )}
                                   </div>
 
-                                  {group.options.map(
-                                    (option) => (
-                                      <span
-                                        key={
-                                          option.id
-                                        }
-                                      >
-                                        {
-                                          option.name
-                                        }{" "}
-                                        {option.priceCents >
-                                          0 &&
-                                          `+ ${formatMoney(
-                                            option.priceCents,
-                                          )}`}
+                                  <h3>
+                                    {product.name}
+                                  </h3>
 
-                                        {!group.libraryManaged && (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              remove.mutate(
-                                                `/admin/options/${option.id}`,
-                                              )
-                                            }
-                                            aria-label={`Excluir ${option.name}`}
-                                          >
-                                            ×
-                                          </button>
-                                        )}
-                                      </span>
-                                    ),
+                                  <p>
+                                    {product.description}
+                                  </p>
+
+                                  <strong>
+                                    {formatMoney(
+                                      product.priceCents,
+                                    )}
+                                  </strong>
+
+                                  {product.suggestAtCheckout && (
+                                    <span className="product-suggestion-badge">
+                                      Sugestão no carrinho
+                                    </span>
                                   )}
                                 </div>
-                              ),
-                            )}
-                          </article>
-                        ),
-                      )
-                    )}
+                              </div>
+
+                              <div className="admin-product-actions">
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() =>
+                                    openEdit(
+                                      product,
+                                    )
+                                  }
+                                >
+                                  <Pencil />
+                                  Editar
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() =>
+                                    patch.mutate({
+                                      path:
+                                        `/admin/products/${product.id}`,
+                                      body: {
+                                        soldOut:
+                                          !product.soldOut,
+                                      },
+                                    })
+                                  }
+                                >
+                                  {product.soldOut
+                                    ? "Marcar disponível"
+                                    : "Marcar esgotado"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() =>
+                                    patch.mutate({
+                                      path:
+                                        `/admin/products/${product.id}`,
+                                      body: {
+                                        active:
+                                          !product.active,
+                                      },
+                                    })
+                                  }
+                                >
+                                  {product.active
+                                    ? "Ocultar"
+                                    : "Publicar"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() =>
+                                    addGroup(
+                                      product.id,
+                                    )
+                                  }
+                                >
+                                  Adicionar grupo
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="icon-button danger"
+                                  onClick={() =>
+                                    confirm(
+                                      "Excluir produto?",
+                                    ) &&
+                                    remove.mutate(
+                                      `/admin/products/${product.id}`,
+                                    )
+                                  }
+                                  aria-label={`Excluir ${product.name}`}
+                                >
+                                  <Trash2 />
+                                </button>
+                              </div>
+
+                              {product.optionGroups.map(
+                                (group) => (
+                                  <div
+                                    className="admin-option-group"
+                                    key={group.id}
+                                  >
+                                    <div>
+                                      <div>
+                                        <strong>
+                                          {group.name}
+                                        </strong>
+
+                                        {group.libraryManaged && (
+                                          <small>
+                                            Sincronizado com a biblioteca de adicionais
+                                          </small>
+                                        )}
+                                      </div>
+
+                                      {!group.libraryManaged && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            addOption(
+                                              group.id,
+                                            )
+                                          }
+                                        >
+                                          + opção
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {group.options.map(
+                                      (option) => (
+                                        <span
+                                          key={
+                                            option.id
+                                          }
+                                        >
+                                          {option.name}{" "}
+                                          {option.priceCents >
+                                            0 &&
+                                            `+ ${formatMoney(
+                                              option.priceCents,
+                                            )}`}
+
+                                          {!group.libraryManaged && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                remove.mutate(
+                                                  `/admin/options/${option.id}`,
+                                                )
+                                              }
+                                              aria-label={`Excluir ${option.name}`}
+                                            >
+                                              ×
+                                            </button>
+                                          )}
+                                        </span>
+                                      ),
+                                    )}
+                                  </div>
+                                ),
+                              )}
+                            </article>
+                          ),
+                        )
+                      )}
+                    </div>
                   </div>
-                </article>
+                </details>
               );
             })}
         </div>
       </section>
 
-      <section className="admin-form-grid">
-        <form
-          className="admin-form"
-          onSubmit={categorySubmit}
+      {createModal === "category" && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() =>
+            setCreateModal(null)
+          }
+          data-create-modal="category"
         >
-          <h2>Nova categoria</h2>
-
-          <label className="field">
-            <span>Nome</span>
-            <input name="name" required />
-          </label>
-
-          <label className="field">
-            <span>Posição</span>
-            <input
-              name="position"
-              type="number"
-              min="0"
-              defaultValue="0"
-            />
-          </label>
-
-          <button
-            className="primary"
-            disabled={createCategory.isPending}
-          >
-            <Plus />
-            Criar categoria
-          </button>
-        </form>
-
-        <form
-          className="admin-form"
-          onSubmit={productSubmit}
-        >
-          <h2>Novo produto</h2>
-
-          <label className="field">
-            <span>Categoria</span>
-            <select
-              name="categoryId"
-              required
-            >
-              <option value="">
-                Selecione
-              </option>
-
-              {categories.data?.map(
-                (category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.name}
-                    {!category.active &&
-                      " (desativada)"}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>Nome</span>
-            <input name="name" required />
-          </label>
-
-          <label className="field">
-            <span>Descrição</span>
-            <textarea name="description" />
-          </label>
-
-          <div className="field-grid">
-            <label className="field">
-              <span>Preço em R$</span>
-              <input
-                name="price"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>Posição</span>
-              <input
-                name="position"
-                type="number"
-                min="0"
-                defaultValue="0"
-              />
-            </label>
-          </div>
-
-          <label className="field">
-            <span>Foto do produto</span>
-            <ImageUploadField
-              value={createImage}
-              onChange={setCreateImage}
-            />
-          </label>
-
-          <fieldset className="product-addon-picker">
-            <legend>
-              Adicionais deste produto
-            </legend>
-
-            {activeAddons.length === 0 ? (
-              <p>
-                Cadastre adicionais na biblioteca
-                acima para poder selecioná-los.
-              </p>
-            ) : (
-              <div className="product-addon-grid">
-                {activeAddons.map((addon) => (
-                  <label key={addon.id}>
-                    <input
-                      type="checkbox"
-                      name="addonIds"
-                      value={addon.id}
-                    />
-
-                    <span>
-                      <strong>{addon.name}</strong>
-                      <small>
-                        {formatMoney(
-                          addon.priceCents,
-                        )}
-                      </small>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            <label className="field addon-max-field">
-              <span>
-                Máximo de adicionais por lanche
-              </span>
-              <input
-                name="addonMaxSelection"
-                type="number"
-                min="1"
-                max="50"
-                defaultValue="10"
-              />
-            </label>
-          </fieldset>
-
-          <label className="admin-check">
-            <input
-              name="featured"
-              type="checkbox"
-            />
-            Produto em destaque
-          </label>
-
-          <label className="admin-check">
-            <input
-              name="suggestAtCheckout"
-              type="checkbox"
-            />
-            Sugerir no carrinho
-            <small>
-              Marque nas bebidas que devem aparecer no fechamento do pedido.
-            </small>
-          </label>
-
-          {createProduct.error && (
-            <p className="error-text">
-              {createProduct.error.message}
-            </p>
-          )}
-
-          <button
-            className="primary"
-            disabled={
-              createProduct.isPending
+          <form
+            className="modal admin-edit-modal admin-create-modal"
+            onSubmit={categorySubmit}
+            onMouseDown={(event) =>
+              event.stopPropagation()
             }
           >
-            <Plus />
-            {createProduct.isPending
-              ? "Criando..."
-              : "Criar produto"}
-          </button>
-        </form>
-      </section>
+            <button
+              className="icon-button close"
+              type="button"
+              onClick={() =>
+                setCreateModal(null)
+              }
+              aria-label="Fechar"
+            >
+              <X />
+            </button>
 
-      
+            <div className="modal-body admin-edit-form">
+              <small>Nova categoria</small>
+              <h2>Criar categoria</h2>
 
-      {editingProduct && (
+              <label className="field">
+                <span>Nome</span>
+                <input
+                  name="name"
+                  placeholder="Ex.: Hambúrgueres"
+                  required
+                  autoFocus
+                />
+              </label>
+
+              <label className="field">
+                <span>Posição</span>
+                <input
+                  name="position"
+                  type="number"
+                  min="0"
+                  defaultValue="0"
+                />
+              </label>
+
+              {createCategory.error && (
+                <p className="error-text">
+                  {createCategory.error.message}
+                </p>
+              )}
+
+              <div className="create-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setCreateModal(null)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="primary"
+                  disabled={
+                    createCategory.isPending
+                  }
+                >
+                  <Plus />
+                  {createCategory.isPending
+                    ? "Criando..."
+                    : "Criar categoria"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {createModal === "product" && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => {
+            setCreateModal(null);
+            setCreateImage(null);
+          }}
+          data-create-modal="product"
+        >
+          <form
+            className="modal admin-edit-modal admin-create-modal product-create-modal"
+            onSubmit={productSubmit}
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <button
+              className="icon-button close"
+              type="button"
+              onClick={() => {
+                setCreateModal(null);
+                setCreateImage(null);
+              }}
+              aria-label="Fechar"
+            >
+              <X />
+            </button>
+
+            <div className="modal-body admin-edit-form">
+              <small>Novo produto</small>
+              <h2>Criar produto</h2>
+
+              <label className="field">
+                <span>Categoria</span>
+                <select
+                  name="categoryId"
+                  required
+                  autoFocus
+                >
+                  <option value="">
+                    Selecione
+                  </option>
+
+                  {categories.data?.map(
+                    (category) => (
+                      <option
+                        key={category.id}
+                        value={category.id}
+                      >
+                        {category.name}
+                        {!category.active &&
+                          " (desativada)"}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Nome</span>
+                <input
+                  name="name"
+                  required
+                />
+              </label>
+
+              <label className="field">
+                <span>Descrição</span>
+                <textarea name="description" />
+              </label>
+
+              <div className="field-grid">
+                <label className="field">
+                  <span>Preço em R$</span>
+                  <input
+                    name="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Posição</span>
+                  <input
+                    name="position"
+                    type="number"
+                    min="0"
+                    defaultValue="0"
+                  />
+                </label>
+              </div>
+
+              <label className="field">
+                <span>Foto do produto</span>
+                <ImageUploadField
+                  value={createImage}
+                  onChange={setCreateImage}
+                />
+              </label>
+
+              <fieldset className="product-addon-picker">
+                <legend>
+                  Adicionais deste produto
+                </legend>
+
+                {activeAddons.length === 0 ? (
+                  <p>
+                    Cadastre adicionais na biblioteca para selecioná-los.
+                  </p>
+                ) : (
+                  <div className="product-addon-grid">
+                    {activeAddons.map(
+                      (addon) => (
+                        <label
+                          key={addon.id}
+                        >
+                          <input
+                            type="checkbox"
+                            name="addonIds"
+                            value={addon.id}
+                          />
+
+                          <span>
+                            <strong>
+                              {addon.name}
+                            </strong>
+
+                            <small>
+                              {formatMoney(
+                                addon.priceCents,
+                              )}
+                            </small>
+                          </span>
+                        </label>
+                      ),
+                    )}
+                  </div>
+                )}
+
+                <label className="field addon-max-field">
+                  <span>
+                    Máximo de adicionais por lanche
+                  </span>
+
+                  <input
+                    name="addonMaxSelection"
+                    type="number"
+                    min="1"
+                    max="50"
+                    defaultValue="10"
+                  />
+                </label>
+              </fieldset>
+
+              <label className="admin-check">
+                <input
+                  name="featured"
+                  type="checkbox"
+                />
+                Produto em destaque
+              </label>
+
+              <label className="admin-check">
+                <input
+                  name="suggestAtCheckout"
+                  type="checkbox"
+                />
+                Sugerir no carrinho
+              </label>
+
+              {createProduct.error && (
+                <p className="error-text">
+                  {createProduct.error.message}
+                </p>
+              )}
+
+              <div className="create-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    setCreateModal(null);
+                    setCreateImage(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="primary"
+                  disabled={
+                    createProduct.isPending
+                  }
+                >
+                  <Plus />
+                  {createProduct.isPending
+                    ? "Criando..."
+                    : "Criar produto"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+{editingProduct && (
         <div
           className="modal-backdrop"
           onMouseDown={() => {
