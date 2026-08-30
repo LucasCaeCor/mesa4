@@ -425,13 +425,29 @@ export function CartDrawer() {
               return false;
             }
 
-            const text =
-              `${categoryName} ${product.name} ${product.description ?? ""}`;
+            /* MESA4_DRINK_FILTER_V25_1 */
+            // Para classificar uma sugestão como bebida,
+            // usamos somente categoria + nome. A descrição
+            // pode dizer "combo com Coca-Cola" e isso não
+            // transforma o combo em uma bebida.
+            const identity =
+              `${categoryName} ${product.name}`;
 
             if (
               !includesAny(
-                text,
+                identity,
                 DRINK_KEYWORDS,
+              )
+            ) {
+              return false;
+            }
+
+            // Nunca deixa lanche/combo entrar na seção
+            // "Que tal uma bebida?".
+            if (
+              includesAny(
+                identity,
+                MEAL_KEYWORDS,
               )
             ) {
               return false;
