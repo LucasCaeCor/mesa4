@@ -14,7 +14,10 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import { useCart } from "../store/cart";
-import type { MenuResponse, Product } from "../types";
+import type {
+  MenuResponse,
+  Product,
+} from "../types";
 import { ProductModal } from "./ProductModal";
 
 const DRINK_KEYWORDS = [
@@ -27,6 +30,7 @@ const DRINK_KEYWORDS = [
   "refrigerantes",
   "coca",
   "guarana",
+  "guaraná",
   "suco",
   "sucos",
   "agua",
@@ -34,45 +38,105 @@ const DRINK_KEYWORDS = [
   "fanta",
   "sprite",
   "pepsi",
+  "soda",
+];
+
+const MEAL_KEYWORDS = [
+  "lanche",
+  "lanches",
+  "burger",
+  "burguer",
+  "hamburguer",
+  "hambúrguer",
+  "smash",
+  "sanduiche",
+  "sanduíche",
+  "hot dog",
+  "hotdog",
+  "cachorro quente",
+  "combo",
 ];
 
 const EXTRA_KEYWORDS = [
   "adicional",
   "adicionais",
-  "acompanhamento",
-  "acompanhar",
-  "acomanhamentos",
   "extra",
   "extras",
+  "acompanhamento",
+  "acompanhamentos",
   "batata",
   "fritas",
   "onion",
+  "nugget",
+  "nuggets",
   "molho",
   "molhos",
   "cheddar",
   "bacon",
-  "nuggets",
+  "catupiry",
+  "calabresa",
+  "ovo",
   "porcao",
   "porção",
-  "combo",
   "sobremesa",
 ];
 
-function normalizeText(value: string) {
+const OPTION_GROUP_EXTRA_KEYWORDS = [
+  "adicional",
+  "adicionais",
+  "extra",
+  "extras",
+  "acrescimo",
+  "acréscimo",
+  "complemento",
+  "complementos",
+];
+
+const STOP_WORDS = new Set([
+  "com",
+  "sem",
+  "para",
+  "por",
+  "uma",
+  "um",
+  "the",
+  "de",
+  "da",
+  "do",
+  "das",
+  "dos",
+  "ml",
+  "litro",
+  "litros",
+  "lata",
+  "garrafa",
+  "unidade",
+]);
+
+function normalizeText(
+  value: string,
+) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function includesAny(
   value: string,
   keywords: string[],
 ) {
-  return keywords.some((keyword) =>
-    value.includes(
-      normalizeText(keyword),
-    ),
+  const normalized =
+    normalizeText(value);
+
+  return keywords.some(
+    (keyword) =>
+      normalized.includes(
+        normalizeText(keyword),
+      ),
   );
 }
 
@@ -88,6 +152,50 @@ function trimDescription(
   return text.length > 78
     ? `${text.slice(0, 75)}...`
     : text;
+}
+
+function significantWords(
+  value: string,
+) {
+  return normalizeText(value)
+    .split(" ")
+    .filter(
+      (word) =>
+        word.length >= 3 &&
+        !STOP_WORDS.has(word),
+    );
+}
+
+function productLooksRepresented(
+  product: Product,
+  cartText: string,
+) {
+  const candidate =
+    normalizeText(product.name);
+
+  if (
+    candidate &&
+    cartText.includes(candidate)
+  ) {
+    return true;
+  }
+
+  const words =
+    significantWords(product.name);
+
+  if (!words.length) {
+    return false;
+  }
+
+  const matched =
+    words.filter((word) =>
+      cartText.includes(word),
+    ).length;
+
+  return (
+    words.length >= 2 &&
+    matched / words.length >= 0.75
+  );
 }
 
 export function CartDrawer() {
@@ -144,10 +252,161 @@ export function CartDrawer() {
   const cartProductIds = useMemo(
     () =>
       new Set(
-        items.map((item) => item.productId),
+        items.map(
+          (item) => item.productId,
+        ),
       ),
     [items],
   );
+
+  const cartContext = useMemo(() => {
+    let hasMeal = false;
+    let hasDrink = false;
+    let hasExtra = false;
+
+    const textParts: string[] = [];
+
+    for (const item of items) {
+      const catalogItem =
+        catalog.find(
+          ({ product }) =>
+            product.id ===
+            item.productId,
+        );
+
+      const product =
+        catalogItem?.product;
+
+      const categoryName =
+        catalogItem?.categoryName ?? "";
+
+      const productIdentity =
+        `${categoryName} ${product?.name ?? item.productName}`;
+
+      const productFullText =
+        `${productIdentity} ${product?.description ?? ""}`;
+
+      textParts.push(
+        productFullText,
+      );
+
+      if (
+        includesAny(
+          productIdentity,
+          DRINK_KEYWORDS,
+        )
+      ) {
+        hasDrink = true;
+      }
+
+      if (
+        includesAny(
+          productIdentity,
+          MEAL_KEYWORDS,
+        ) &&
+        !includesAny(
+          productIdentity,
+          DRINK_KEYWORDS,
+        )
+      ) {
+        hasMeal = true;
+      }
+
+      // Produto avulso de acompanhamento/adicional.
+      if (
+        includesAny(
+          productIdentity,
+          EXTRA_KEYWORDS,
+        ) &&
+        !includesAny(
+          productIdentity,
+          MEAL_KEYWORDS,
+        ) &&
+        !includesAny(
+          productIdentity,
+          DRINK_KEYWORDS,
+        )
+      ) {
+        hasExtra = true;
+      }
+
+      // Combos podem declarar bebida/batata na descrição.
+      if (
+        includesAny(
+          productIdentity,
+          ["combo"],
+        )
+      ) {
+        if (
+          includesAny(
+            product?.description ?? "",
+            DRINK_KEYWORDS,
+          )
+        ) {
+          hasDrink = true;
+        }
+
+        if (
+          includesAny(
+            product?.description ?? "",
+            EXTRA_KEYWORDS,
+          )
+        ) {
+          hasExtra = true;
+        }
+      }
+
+      for (const option of item.options) {
+        const optionText =
+          `${option.groupName} ${option.optionName}`;
+
+        textParts.push(optionText);
+
+        if (
+          includesAny(
+            optionText,
+            DRINK_KEYWORDS,
+          )
+        ) {
+          hasDrink = true;
+        }
+
+        // Para não considerar ingrediente normal do lanche
+        // como adicional, a opção precisa estar em um grupo
+        // de adicionais/extras OU ter nome muito claro de
+        // acompanhamento.
+        if (
+          includesAny(
+            option.groupName,
+            OPTION_GROUP_EXTRA_KEYWORDS,
+          ) ||
+          includesAny(
+            option.optionName,
+            [
+              "batata",
+              "fritas",
+              "onion",
+              "nugget",
+              "nuggets",
+              "porcao",
+              "porção",
+            ],
+          )
+        ) {
+          hasExtra = true;
+        }
+      }
+    }
+
+    return {
+      hasMeal,
+      hasDrink,
+      hasExtra,
+      cartText: normalizeText(
+        textParts.join(" "),
+      ),
+    };
+  }, [catalog, items]);
 
   const drinkSuggestions = useMemo(
     () =>
@@ -167,13 +426,20 @@ export function CartDrawer() {
             }
 
             const text =
-              normalizeText(
-                `${categoryName} ${product.name} ${product.description ?? ""}`,
-              );
+              `${categoryName} ${product.name} ${product.description ?? ""}`;
 
-            return includesAny(
-              text,
-              DRINK_KEYWORDS,
+            if (
+              !includesAny(
+                text,
+                DRINK_KEYWORDS,
+              )
+            ) {
+              return false;
+            }
+
+            return !productLooksRepresented(
+              product,
+              cartContext.cartText,
             );
           },
         )
@@ -181,103 +447,90 @@ export function CartDrawer() {
         .map(
           ({ product }) => product,
         ),
-    [catalog, cartProductIds],
+    [
+      catalog,
+      cartProductIds,
+      cartContext.cartText,
+    ],
   );
 
   const extraSuggestions = useMemo(() => {
-    const primary = catalog.filter(
-      ({
-        product,
-        categoryName,
-      }) => {
-        if (
-          product.soldOut ||
-          cartProductIds.has(
-            product.id,
-          )
-        ) {
-          return false;
-        }
+    const candidates =
+      catalog.filter(
+        ({
+          product,
+          categoryName,
+        }) => {
+          if (
+            product.soldOut ||
+            cartProductIds.has(
+              product.id,
+            )
+          ) {
+            return false;
+          }
 
-        const text =
-          normalizeText(
-            `${categoryName} ${product.name} ${product.description ?? ""}`,
+          const text =
+            `${categoryName} ${product.name} ${product.description ?? ""}`;
+
+          if (
+            includesAny(
+              text,
+              DRINK_KEYWORDS,
+            ) ||
+            includesAny(
+              text,
+              MEAL_KEYWORDS,
+            )
+          ) {
+            return false;
+          }
+
+          const looksLikeExtra =
+            includesAny(
+              text,
+              EXTRA_KEYWORDS,
+            ) ||
+            product.suggestAtCheckout;
+
+          if (!looksLikeExtra) {
+            return false;
+          }
+
+          return !productLooksRepresented(
+            product,
+            cartContext.cartText,
           );
+        },
+      );
 
-        if (
-          includesAny(
-            text,
-            DRINK_KEYWORDS,
-          )
-        ) {
-          return false;
-        }
+    return candidates
+      .slice(0, 4)
+      .map(
+        ({ product }) => product,
+      );
+  }, [
+    catalog,
+    cartProductIds,
+    cartContext.cartText,
+  ]);
 
-        return (
-          includesAny(
-            text,
-            EXTRA_KEYWORDS,
-          ) ||
-          product.featured ||
-          product.suggestAtCheckout
-        );
-      },
-    );
-
-    const fallback = catalog.filter(
-      ({
-        product,
-        categoryName,
-      }) => {
-        if (
-          product.soldOut ||
-          cartProductIds.has(
-            product.id,
-          )
-        ) {
-          return false;
-        }
-
-        const text =
-          normalizeText(
-            `${categoryName} ${product.name} ${product.description ?? ""}`,
-          );
-
-        return !includesAny(
-          text,
-          DRINK_KEYWORDS,
-        );
-      },
-    );
-
-    const merged = [
-      ...primary,
-      ...fallback,
-    ];
-
-    const seen = new Set<string>();
-    const results: Product[] = [];
-
-    for (const { product } of merged) {
-      if (seen.has(product.id)) {
-        continue;
-      }
-
-      seen.add(product.id);
-      results.push(product);
-
-      if (results.length >= 4) {
-        break;
-      }
-    }
-
-    return results;
-  }, [catalog, cartProductIds]);
+  const suggestionMode =
+    !items.length ||
+    !cartContext.hasMeal
+      ? "NONE"
+      : !cartContext.hasDrink
+        ? "DRINK"
+        : !cartContext.hasExtra
+          ? "EXTRA"
+          : "NONE";
 
   function handleSuggestion(
     product: Product,
   ) {
-    if (product.optionGroups.length) {
+    if (
+      product.optionGroups.length
+    ) {
       setSelectedUpsell(product);
       return;
     }
@@ -292,6 +545,13 @@ export function CartDrawer() {
       options: [],
     });
   }
+
+  const visibleSuggestions =
+    suggestionMode === "DRINK"
+      ? drinkSuggestions
+      : suggestionMode === "EXTRA"
+        ? extraSuggestions
+        : [];
 
   return (
     <>
@@ -415,33 +675,53 @@ export function CartDrawer() {
             </article>
           ))}
 
-          {!!items.length && (
-            <div className="upsell-stack">
-              {!!extraSuggestions.length && (
-                <section className="upsell-section">
+          {!!items.length &&
+            visibleSuggestions.length > 0 && (
+              <div className="upsell-stack">
+                <section
+                  className="upsell-section"
+                  data-contextual-upsell="true"
+                >
                   <div className="upsell-header">
                     <div className="upsell-icon">
-                      <Sparkles size={18} />
+                      {suggestionMode ===
+                      "DRINK" ? (
+                        <GlassWater
+                          size={18}
+                        />
+                      ) : (
+                        <Sparkles
+                          size={18}
+                        />
+                      )}
                     </div>
 
                     <div>
                       <span className="upsell-kicker">
-                        Sugestão especial
+                        {suggestionMode ===
+                        "DRINK"
+                          ? "Falta só uma bebida"
+                          : "Deixe ainda melhor"}
                       </span>
+
                       <h3>
-                        Turbine seu lanche
+                        {suggestionMode ===
+                        "DRINK"
+                          ? "Que tal uma bebida?"
+                          : "Turbine seu lanche"}
                       </h3>
+
                       <p>
-                        Escolha um extra
-                        para deixar seu
-                        pedido ainda mais
-                        completo.
+                        {suggestionMode ===
+                        "DRINK"
+                          ? "Seu pedido já tem lanche. Escolha uma bebida para completar."
+                          : "Seu pedido já tem lanche e bebida. Que tal adicionar um acompanhamento?"}
                       </p>
                     </div>
                   </div>
 
                   <div className="upsell-grid">
-                    {extraSuggestions.map(
+                    {visibleSuggestions.map(
                       (product) => (
                         <button
                           className="upsell-card"
@@ -463,7 +743,12 @@ export function CartDrawer() {
                                 }
                               />
                             ) : (
-                              <span>🍟</span>
+                              <span>
+                                {suggestionMode ===
+                                "DRINK"
+                                  ? "🥤"
+                                  : "🍟"}
+                              </span>
                             )}
                           </div>
 
@@ -484,6 +769,7 @@ export function CartDrawer() {
                                   product.priceCents,
                                 )}
                               </b>
+
                               <span>
                                 Adicionar
                               </span>
@@ -494,92 +780,8 @@ export function CartDrawer() {
                     )}
                   </div>
                 </section>
-              )}
-
-              {!!drinkSuggestions.length && (
-                <section className="upsell-section">
-                  <div className="upsell-header">
-                    <div className="upsell-icon">
-                      <GlassWater
-                        size={18}
-                      />
-                    </div>
-
-                    <div>
-                      <span className="upsell-kicker">
-                        Complemente seu
-                        pedido
-                      </span>
-                      <h3>
-                        Que tal uma
-                        bebida?
-                      </h3>
-                      <p>
-                        Aproveite para
-                        adicionar uma
-                        bebida gelada ao
-                        seu lanche.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="upsell-grid">
-                    {drinkSuggestions.map(
-                      (product) => (
-                        <button
-                          className="upsell-card"
-                          key={product.id}
-                          onClick={() =>
-                            handleSuggestion(
-                              product,
-                            )
-                          }
-                        >
-                          <div className="upsell-thumb">
-                            {product.imageUrl ? (
-                              <img
-                                src={
-                                  product.imageUrl
-                                }
-                                alt={
-                                  product.name
-                                }
-                              />
-                            ) : (
-                              <span>🥤</span>
-                            )}
-                          </div>
-
-                          <div className="upsell-copy">
-                            <strong>
-                              {product.name}
-                            </strong>
-
-                            <small>
-                              {trimDescription(
-                                product.description,
-                              )}
-                            </small>
-
-                            <div className="upsell-meta">
-                              <b>
-                                {formatMoney(
-                                  product.priceCents,
-                                )}
-                              </b>
-                              <span>
-                                Adicionar
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </section>
-              )}
-            </div>
-          )}
+              </div>
+            )}
         </div>
 
         {!!items.length && (
@@ -595,9 +797,7 @@ export function CartDrawer() {
               className="primary"
               onClick={() => {
                 setOpen(false);
-                navigate(
-                  "/checkout",
-                );
+                navigate("/checkout");
               }}
             >
               Continuar pedido
@@ -610,9 +810,7 @@ export function CartDrawer() {
         <ProductModal
           product={selectedUpsell}
           onClose={() =>
-            setSelectedUpsell(
-              null,
-            )
+            setSelectedUpsell(null)
           }
         />
       )}
