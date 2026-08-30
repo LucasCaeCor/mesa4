@@ -405,8 +405,6 @@ function ImageUploadField({
 /* MESA4_IMAGE_URL_AND_CHECKOUT_SUGGESTION */
 export function AdminMenuPage() {
   const client = useQueryClient();
-  const [addonCreateOpen, setAddonCreateOpen] =
-    useState(false);
   const [createModal, setCreateModal] = useState<
     "category" | "product" | null
   >(null);
@@ -664,10 +662,7 @@ body: JSON.stringify(product),
         active: true,
       },
       {
-        onSuccess: () => {
-          formElement.reset();
-          setAddonCreateOpen(false);
-        },
+        onSuccess: () => formElement.reset(),
       },
     );
   }
@@ -889,200 +884,148 @@ body: JSON.stringify(product),
           <h1>Cardápio</h1>
         </div>
       </header>
-      <section
-        className="addon-library-section addon-library-clean"
-        data-addon-library-clean="v28"
-      >
-        <div className="addon-library-toolbar">
+<section className="addon-library-section">
+        <div className="section-title">
           <div>
-            <small>
-              Cadastre uma vez e reutilize nos produtos
-            </small>
+            <small>Cadastre uma vez e reutilize</small>
             <h2>Biblioteca de adicionais</h2>
-            <p>
-              Expanda somente o adicional que deseja gerenciar.
-            </p>
           </div>
 
-          <div className="addon-library-toolbar-actions">
-            <span>
-              {addons.data?.length ?? 0} cadastrados
-            </span>
-
-            <button
-              type="button"
-              className="primary"
-              onClick={() =>
-                setAddonCreateOpen(true)
-              }
-            >
-              <Plus />
-              Novo adicional
-            </button>
-          </div>
+          <span>
+            {addons.data?.length ?? 0} cadastrados
+          </span>
         </div>
 
-        <div className="addon-accordion-list">
-          {addons.isLoading && (
-            <p>Carregando adicionais...</p>
-          )}
+        <div className="addon-library-layout">
+          <form
+            className="admin-form"
+            onSubmit={addonSubmit}
+          >
+            <h2>Novo adicional</h2>
 
-          {addons.data?.length === 0 && (
-            <div className="addon-library-empty">
-              Nenhum adicional cadastrado.
+            <label className="field">
+              <span>Nome</span>
+              <input
+                name="name"
+                placeholder="Ex.: Bacon"
+                required
+              />
+            </label>
+
+            <div className="field-grid">
+              <label className="field">
+                <span>Preço padrão em R$</span>
+                <input
+                  name="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </label>
+
+              <label className="field">
+                <span>Posição</span>
+                <input
+                  name="position"
+                  type="number"
+                  min="0"
+                  defaultValue="0"
+                />
+              </label>
             </div>
-          )}
 
-          {addons.data
-            ?.slice()
-            .sort(
-              (a, b) =>
-                a.position - b.position,
-            )
-            .map((addon) => {
-              const usedByProducts =
-                products.data?.filter(
-                  (product) =>
-                    product.optionGroups.some(
-                      (group) =>
-                        group.options.some(
-                          (option) =>
-                            option.addonLibraryId ===
-                            addon.id,
-                        ),
-                    ),
-                ).length ?? 0;
+            {createAddon.error && (
+              <p className="error-text">
+                {createAddon.error.message}
+              </p>
+            )}
 
-              return (
-                <details
-                  className={`addon-accordion ${
-                    addon.active
-                      ? ""
-                      : "inactive"
-                  }`}
-                  key={addon.id}
-                >
-                  <summary className="addon-accordion-summary">
-                    <span className="addon-status-dot" />
+            <button
+              className="primary"
+              disabled={createAddon.isPending}
+            >
+              <Plus />
+              Criar adicional
+            </button>
+          </form>
 
-                    <div className="addon-accordion-main">
-                      <strong>
-                        {addon.name}
-                      </strong>
+          <div className="addon-library-list">
+            {addons.isLoading && (
+              <p>Carregando adicionais...</p>
+            )}
 
-                      <small>
-                        posição {addon.position}
-                        {" · "}
-                        {usedByProducts === 1
-                          ? "usado em 1 produto"
-                          : `usado em ${usedByProducts} produtos`}
-                      </small>
-                    </div>
+            {addons.data?.length === 0 && (
+              <div className="addon-library-empty">
+                Nenhum adicional cadastrado.
+              </div>
+            )}
 
-                    <b className="addon-accordion-price">
-                      {formatMoney(
-                        addon.priceCents,
-                      )}
-                    </b>
+            {addons.data?.map((addon) => (
+              <article
+                className={`addon-library-item ${
+                  addon.active ? "" : "inactive"
+                }`}
+                key={addon.id}
+              >
+                <div>
+                  <strong>{addon.name}</strong>
+                  <small>
+                    posição {addon.position}
+                  </small>
+                </div>
 
-                    <span className="addon-accordion-status">
-                      {addon.active
-                        ? "Ativo"
-                        : "Desativado"}
-                    </span>
+                <b>
+                  {formatMoney(addon.priceCents)}
+                </b>
 
-                    <span className="addon-accordion-expand">
-                      Gerenciar
-                    </span>
-                  </summary>
+                <div className="addon-library-actions">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => editAddon(addon)}
+                  >
+                    <Pencil />
+                    Editar
+                  </button>
 
-                  <div className="addon-accordion-body">
-                    <div className="addon-accordion-details">
-                      <div>
-                        <small>
-                          Nome
-                        </small>
-                        <strong>
-                          {addon.name}
-                        </strong>
-                      </div>
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() =>
+                      patch.mutate({
+                        path:
+                          `/admin/addons/${addon.id}`,
+                        body: {
+                          active: !addon.active,
+                        },
+                      })
+                    }
+                  >
+                    {addon.active
+                      ? "Desativar"
+                      : "Ativar"}
+                  </button>
 
-                      <div>
-                        <small>
-                          Preço padrão
-                        </small>
-                        <strong>
-                          {formatMoney(
-                            addon.priceCents,
-                          )}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <small>
-                          Produtos vinculados
-                        </small>
-                        <strong>
-                          {usedByProducts}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="addon-library-actions addon-accordion-actions">
-                      <button
-                        className="secondary"
-                        type="button"
-                        onClick={() =>
-                          editAddon(addon)
-                        }
-                      >
-                        <Pencil />
-                        Editar
-                      </button>
-
-                      <button
-                        className="secondary"
-                        type="button"
-                        disabled={
-                          patch.isPending
-                        }
-                        onClick={() =>
-                          patch.mutate({
-                            path:
-                              `/admin/addons/${addon.id}`,
-                            body: {
-                              active:
-                                !addon.active,
-                            },
-                          })
-                        }
-                      >
-                        {addon.active
-                          ? "Desativar"
-                          : "Ativar"}
-                      </button>
-
-                      <button
-                        className="secondary danger-outline"
-                        type="button"
-                        aria-label={`Excluir ${addon.name}`}
-                        onClick={() =>
-                          confirm(
-                            "Excluir este adicional da biblioteca e removê-lo dos produtos?",
-                          ) &&
-                          remove.mutate(
-                            `/admin/addons/${addon.id}`,
-                          )
-                        }
-                      >
-                        <Trash2 />
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                </details>
-              );
-            })}
+                  <button
+                    className="icon-button danger"
+                    type="button"
+                    aria-label={`Excluir ${addon.name}`}
+                    onClick={() =>
+                      confirm(
+                        "Excluir este adicional da biblioteca e removê-lo dos produtos?",
+                      ) &&
+                      remove.mutate(
+                        `/admin/addons/${addon.id}`,
+                      )
+                    }
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -1504,111 +1447,7 @@ body: JSON.stringify(product),
         </div>
       </section>
 
-            {addonCreateOpen && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={() =>
-            setAddonCreateOpen(false)
-          }
-          data-create-modal="addon"
-        >
-          <form
-            className="modal admin-edit-modal admin-create-modal addon-create-modal"
-            onSubmit={addonSubmit}
-            onMouseDown={(event) =>
-              event.stopPropagation()
-            }
-          >
-            <button
-              className="icon-button close"
-              type="button"
-              onClick={() =>
-                setAddonCreateOpen(false)
-              }
-              aria-label="Fechar criação de adicional"
-            >
-              <X />
-            </button>
-
-            <div className="modal-body admin-edit-form">
-              <small>Biblioteca de adicionais</small>
-              <h2>Novo adicional</h2>
-
-              <p className="muted">
-                Cadastre o adicional uma vez e depois vincule
-                aos produtos desejados.
-              </p>
-
-              <label className="field">
-                <span>Nome</span>
-                <input
-                  name="name"
-                  placeholder="Ex.: Bacon"
-                  required
-                  autoFocus
-                />
-              </label>
-
-              <div className="field-grid">
-                <label className="field">
-                  <span>
-                    Preço padrão em R$
-                  </span>
-                  <input
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Posição</span>
-                  <input
-                    name="position"
-                    type="number"
-                    min="0"
-                    defaultValue="0"
-                  />
-                </label>
-              </div>
-
-              {createAddon.error && (
-                <p className="error-text">
-                  {createAddon.error.message}
-                </p>
-              )}
-
-              <div className="create-modal-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() =>
-                    setAddonCreateOpen(false)
-                  }
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  className="primary"
-                  disabled={
-                    createAddon.isPending
-                  }
-                >
-                  <Plus />
-                  {createAddon.isPending
-                    ? "Criando..."
-                    : "Criar adicional"}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      )}
-
-{createModal === "category" && (
+      {createModal === "category" && (
         <div
           className="modal-backdrop"
           onMouseDown={() =>
