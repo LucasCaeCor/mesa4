@@ -298,26 +298,19 @@ export function CartDrawer() {
           );
     }
 
-    // Produtos explicitamente mantidos em "Automático (legado)"
-    // continuam participando mesmo após ativar o modo manual.
-    if (
-      product.suggestAtCheckout
-    ) {
-      return kind === "DRINK"
-        ? includesAny(
-            legacyIdentity,
-            DRINK_KEYWORDS,
-          ) &&
-            !includesAny(
-              legacyIdentity,
-              MEAL_KEYWORDS,
-            )
-        : includesAny(
-            legacyIdentity,
-            EXTRA_KEYWORDS,
-          );
-    }
-
+    /*
+     * MESA4_CART_MANUAL_ONLY_V32_2
+     *
+     * Quando existe pelo menos uma classificação manual
+     * no catálogo, o carrinho inicial passa a respeitar
+     * SOMENTE produtos explicitamente marcados como
+     * DRINK ou EXTRA.
+     *
+     * Produtos antigos com suggestAtCheckout=true mas
+     * cartSuggestionKind=null não entram mais aqui.
+     * Isso evita várias Coca-Colas "automáticas" quando
+     * o admin escolheu manualmente apenas uma.
+     */
     return false;
   }
 
