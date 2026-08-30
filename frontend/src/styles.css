@@ -3564,3 +3564,88 @@
     transform: rotate(360deg);
   }
 }
+
+
+/* MESA4_PROGRESSIVE_ADDRESS_V30_STYLES */
+.cep-auto-block {
+  display: grid;
+  gap: 7px;
+}
+
+.cep-auto-feedback {
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+}
+
+.cep-auto-feedback .address-found {
+  color: #92e2b1;
+  font-weight: 700;
+}
+
+.address-progressive-summary {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.address-confirmed-card {
+  display: flex;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(114, 214, 154, 0.2);
+  background: rgba(114, 214, 154, 0.07);
+}
+
+.address-confirmed-card > div {
+  display: grid;
+  gap: 3px;
+}
+
+.address-confirmed-card strong {
+  color: #92e2b1;
+  font-size: 13px;
+}
+
+.address-confirmed-card span {
+  font-weight: 700;
+}
+
+.address-confirmed-card small {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.address-manual-help {
+  display: grid;
+  gap: 8px;
+}
+
+.address-manual-help .error-text {
+  margin: 0;
+}
+
+.address-manual-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.address-manual-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 520px) {
+  .address-confirmed-card {
+    padding: 12px;
+  }
+}

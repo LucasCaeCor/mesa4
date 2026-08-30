@@ -4,7 +4,6 @@ import {
   Banknote,
   CreditCard,
   QrCode,
-  Search,
   Trash2,
 } from "lucide-react";
 import { FormEvent, useMemo, useRef, useState, useEffect } from "react";
@@ -170,6 +169,12 @@ export function CheckoutPage() {
   const [city, setCity] = useState("");
   const [stateCode, setStateCode] = useState("");
 
+  /* MESA4_PROGRESSIVE_ADDRESS_V30 */
+  const [
+    manualAddressOpen,
+    setManualAddressOpen,
+  ] = useState(false);
+
   const subtotal = useMemo(
     () =>
       items.reduce(
@@ -223,9 +228,30 @@ export function CheckoutPage() {
       setNeighborhood(data.neighborhood);
       setCity(data.city);
       setStateCode(data.state);
+      setManualAddressOpen(false);
       window.setTimeout(() => numberInput.current?.focus(), 0);
     },
   });
+
+
+  /* MESA4_AUTO_CEP_V30 */
+  useEffect(() => {
+    const digits =
+      postalCode.replace(/\D/g, "");
+
+    if (digits.length !== 8) {
+      return;
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        cepLookup.mutate(digits);
+      }, 400);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [postalCode]);
 
   const mutation = useMutation({
     mutationFn: (payload: unknown) =>
@@ -279,10 +305,6 @@ export function CheckoutPage() {
     stateCode,
   ]);
 
-  function searchPostalCode() {
-    const digits = postalCode.replace(/\D/g, "");
-    if (digits.length === 8) cepLookup.mutate(digits);
-  }
 
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -394,32 +416,51 @@ export function CheckoutPage() {
           {fulfillment === "DELIVERY" && (
             <>
               <h2>Endereço</h2>
-              <div className="cep-search-row">
-                <label className="field grow">
+              <div className="cep-auto-block">
+                <label className="field full">
                   <span>CEP</span>
                   <input
                     name="postalCode"
                     value={postalCode}
                     onChange={(event) => {
+                      /* MESA4_CLEAR_ADDRESS_ON_CEP_V30 */
                       deliveryQuote.reset();
-                      setPostalCode(event.target.value);
+                      setPostalCode(
+                        event.target.value,
+                      );
+                      setStreet("");
+                      setNeighborhood("");
+                      setCity("");
+                      setStateCode("");
+                      setManualAddressOpen(
+                        false,
+                      );
                     }}
-                    onBlur={searchPostalCode}
                     inputMode="numeric"
                     maxLength={9}
                     placeholder="00000-000"
                     required
                   />
                 </label>
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={searchPostalCode}
-                  disabled={cepLookup.isPending}
-                >
-                  <Search />
-                  {cepLookup.isPending ? "Buscando..." : "Buscar CEP"}
-                </button>
+
+                <div className="cep-auto-feedback">
+                  {cepLookup.isPending && (
+                    <span>
+                      Buscando endereço...
+                    </span>
+                  )}
+
+                  {!cepLookup.isPending &&
+                    postalCode.replace(/\D/g, "")
+                      .length === 8 &&
+                    street &&
+                    city &&
+                    stateCode && (
+                      <span className="address-found">
+                        ✓ Endereço encontrado
+                      </span>
+                    )}
+                </div>
               </div>
 
               {cepLookup.error && (
@@ -468,7 +509,9 @@ export function CheckoutPage() {
                     required
                   />
                 </label>
-                <label className="field">
+                {manualAddressOpen && (
+                  <>
+                    <label className="field">
                   <span>Cidade</span>
                   <input
                     name="city"
@@ -480,7 +523,8 @@ export function CheckoutPage() {
                     required
                   />
                 </label>
-                <label className="field">
+
+                    <label className="field">
                   <span>Estado</span>
                   <input
                     name="state"
@@ -495,10 +539,92 @@ export function CheckoutPage() {
                     required
                   />
                 </label>
+                  </>
+                )}
                 <label className="field full">
                   <span>Referência</span>
                   <input name="reference" />
                 </label>
+              </div>
+
+              <div
+                className="address-progressive-summary"
+                data-address-summary-v30="true"
+              >
+                {!manualAddressOpen &&
+                  street &&
+                  neighborhood &&
+                  city &&
+                  stateCode && (
+                    <div className="address-confirmed-card">
+                      <div>
+                        <strong>
+                          ✓ Endereço localizado
+                        </strong>
+                        <span>
+                          {street}
+                          {number
+                            ? `, ${number}`
+                            : ""}
+                        </span>
+                        <small>
+                          {neighborhood} · {city}/{stateCode}
+                        </small>
+                      </div>
+                    </div>
+                  )}
+
+                {(cepLookup.error ||
+                  manualAddressOpen) && (
+                  <div className="address-manual-help">
+                    {cepLookup.error && (
+                      <p className="error-text">
+                        {cepLookup.error.message}
+                      </p>
+                    )}
+
+                    {!manualAddressOpen && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() =>
+                          setManualAddressOpen(
+                            true,
+                          )
+                        }
+                      >
+                        Preencher endereço manualmente
+                      </button>
+                    )}
+
+                    {manualAddressOpen && (
+                      <small>
+                        Preencha também Cidade e Estado
+                        para calcular a entrega.
+                      </small>
+                    )}
+                  </div>
+                )}
+
+                {!cepLookup.error &&
+                  !manualAddressOpen &&
+                  postalCode.replace(/\D/g, "")
+                    .length === 8 &&
+                  !cepLookup.isPending &&
+                  !city && (
+                    <button
+                      type="button"
+                      className="address-manual-link"
+                      onClick={() =>
+                        setManualAddressOpen(
+                          true,
+                        )
+                      }
+                    >
+                      CEP não trouxe o endereço?
+                      Preencher manualmente
+                    </button>
+                  )}
               </div>
 
               {dynamicDeliveryEnabled && (
