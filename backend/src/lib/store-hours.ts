@@ -1,23 +1,6 @@
-export const STORE_TIME_ZONE =
-  "America/Sao_Paulo";
-
-export type StoreAvailabilityReason =
-  | "OPEN"
-  | "MANUALLY_CLOSED"
-  | "OUTSIDE_BUSINESS_HOURS"
-  | "SETTINGS_NOT_FOUND";
-
-export type StoreAvailability = {
-  isOpen: boolean;
-  reason: StoreAvailabilityReason;
-  timezone: string;
-  currentWeekday: number;
-  currentTime: string;
-};
-
 type StoreSettingsLike =
   | {
-      acceptingOrders: boolean;
+      acceptingOrders?: boolean | null;
     }
   | null
   | undefined;
@@ -27,9 +10,13 @@ type BusinessHourLike = {
   enabled: boolean;
   opensAt: string;
   closesAt: string;
+  position?: number | null;
 };
 
-const weekdayByName: Record<string, number> = {
+const STORE_TIMEZONE =
+  "America/Sao_Paulo";
+
+const WEEKDAYS: Record<string, number> = {
   Sun: 0,
   Mon: 1,
   Tue: 2,
@@ -39,91 +26,97 @@ const weekdayByName: Record<string, number> = {
   Sat: 6,
 };
 
-function timeToMinutes(value: string) {
-  const [hour, minute] = value
-    .split(":")
-    .map(Number);
+function toMinutes(value: string) {
+  const [hours, minutes] =
+    value.split(":").map(Number);
 
-  return hour * 60 + minute;
+  return hours * 60 + minutes;
 }
 
 function getStoreClock(now: Date) {
-  const parts = new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: STORE_TIME_ZONE,
+  const formatter =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: STORE_TIMEZONE,
       weekday: "short",
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
-    },
-  ).formatToParts(now);
+    });
 
-  const weekdayName =
-    parts.find(
-      (part) => part.type === "weekday",
-    )?.value ?? "Sun";
-  const hour = Number(
-    parts.find(
-      (part) => part.type === "hour",
-    )?.value ?? 0,
-  );
-  const minute = Number(
-    parts.find(
-      (part) => part.type === "minute",
-    )?.value ?? 0,
-  );
+  const parts =
+    Object.fromEntries(
+      formatter
+        .formatToParts(now)
+        .filter(
+          (part) =>
+            part.type !== "literal",
+        )
+        .map((part) => [
+          part.type,
+          part.value,
+        ]),
+    );
+
+  const weekday =
+    WEEKDAYS[parts.weekday] ?? 0;
+
+  const hour =
+    Number(parts.hour ?? "0");
+  const minute =
+    Number(parts.minute ?? "0");
 
   return {
-    weekday: weekdayByName[weekdayName] ?? 0,
+    weekday,
     minutes: hour * 60 + minute,
-    time:
-      `${String(hour).padStart(2, "0")}:` +
-      String(minute).padStart(2, "0"),
+    currentTime:
+      `${String(hour).padStart(2, "0")}:${String(
+        minute,
+      ).padStart(2, "0")}`,
   };
 }
 
-function isScheduleActive(
-  schedule: BusinessHourLike,
+function intervalContains(
+  hour: BusinessHourLike,
   currentWeekday: number,
   currentMinutes: number,
 ) {
-  if (!schedule.enabled) {
+  if (!hour.enabled) {
     return false;
   }
 
-  const opensAt = timeToMinutes(
-    schedule.opensAt,
-  );
-  const closesAt = timeToMinutes(
-    schedule.closesAt,
-  );
+  const opens =
+    toMinutes(hour.opensAt);
+  const closes =
+    toMinutes(hour.closesAt);
 
-  // Horários iguais representam funcionamento
-  // durante todo o dia configurado.
-  if (opensAt === closesAt) {
-    return currentWeekday === schedule.weekday;
+  if (opens === closes) {
+    return false;
   }
 
-  // Exemplo: 08:00 até 18:00.
-  if (opensAt < closesAt) {
+  // Intervalo normal no mesmo dia.
+  if (opens < closes) {
     return (
-      currentWeekday === schedule.weekday &&
-      currentMinutes >= opensAt &&
-      currentMinutes < closesAt
+      hour.weekday === currentWeekday &&
+      currentMinutes >= opens &&
+      currentMinutes < closes
     );
   }
 
-  // Horário que atravessa a meia-noite.
-  // Exemplo: segunda 20:00 até terça 02:00.
-  const followingWeekday =
-    (schedule.weekday + 1) % 7;
+  // Intervalo atravessando meia-noite,
+  // ex.: sexta 18:00 -> 02:00.
+  if (
+    hour.weekday === currentWeekday &&
+    currentMinutes >= opens
+  ) {
+    return true;
+  }
+
+  const previousWeekday =
+    (currentWeekday + 6) % 7;
 
   return (
-    (currentWeekday === schedule.weekday &&
-      currentMinutes >= opensAt) ||
-    (currentWeekday === followingWeekday &&
-      currentMinutes < closesAt)
+    hour.weekday === previousWeekday &&
+    currentMinutes < closes
   );
 }
 
@@ -131,46 +124,49 @@ export function evaluateStoreAvailability(
   settings: StoreSettingsLike,
   hours: BusinessHourLike[],
   now = new Date(),
-): StoreAvailability {
+) {
   const clock = getStoreClock(now);
 
   if (!settings) {
     return {
       isOpen: false,
-      reason: "SETTINGS_NOT_FOUND",
-      timezone: STORE_TIME_ZONE,
+      reason:
+        "SETTINGS_NOT_FOUND" as const,
+      timezone: STORE_TIMEZONE,
       currentWeekday: clock.weekday,
-      currentTime: clock.time,
+      currentTime: clock.currentTime,
     };
   }
 
-  // Esta chave continua funcionando como
-  // fechamento manual de emergência.
-  if (!settings.acceptingOrders) {
+  if (
+    settings.acceptingOrders === false
+  ) {
     return {
       isOpen: false,
-      reason: "MANUALLY_CLOSED",
-      timezone: STORE_TIME_ZONE,
+      reason:
+        "MANUALLY_CLOSED" as const,
+      timezone: STORE_TIMEZONE,
       currentWeekday: clock.weekday,
-      currentTime: clock.time,
+      currentTime: clock.currentTime,
     };
   }
 
-  const isOpen = hours.some((schedule) =>
-    isScheduleActive(
-      schedule,
-      clock.weekday,
-      clock.minutes,
-    ),
-  );
+  const isInsideAnyInterval =
+    hours.some((hour) =>
+      intervalContains(
+        hour,
+        clock.weekday,
+        clock.minutes,
+      ),
+    );
 
   return {
-    isOpen,
-    reason: isOpen
-      ? "OPEN"
-      : "OUTSIDE_BUSINESS_HOURS",
-    timezone: STORE_TIME_ZONE,
+    isOpen: isInsideAnyInterval,
+    reason: isInsideAnyInterval
+      ? ("OPEN" as const)
+      : ("OUTSIDE_BUSINESS_HOURS" as const),
+    timezone: STORE_TIMEZONE,
     currentWeekday: clock.weekday,
-    currentTime: clock.time,
+    currentTime: clock.currentTime,
   };
 }

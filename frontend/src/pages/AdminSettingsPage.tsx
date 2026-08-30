@@ -11,6 +11,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { AdminNav } from "../components/AdminNav";
+import { AdminSuggestionManager } from "../components/AdminSuggestionManager";
+import { AdminBusinessHoursManager } from "../components/AdminBusinessHoursManager";
 import { PixSecurityPanel } from "../components/PixSecurityPanel";
 import { adminApi } from "../lib/api";
 import type { StoreSettings } from "../types";
@@ -20,6 +22,7 @@ type Hour = {
   enabled: boolean;
   opensAt: string;
   closesAt: string;
+  position?: number;
 };
 
 const weekdayNames = [
@@ -784,8 +787,12 @@ export function AdminSettingsPage() {
         </form>
       )}
 
-      <form
-        className="admin-form settings-form"
+            {/* MESA4_ADMIN_MANAGERS_V32 */}
+      <AdminSuggestionManager />
+      <AdminBusinessHoursManager />
+
+<form
+        className="admin-form settings-form legacy-hours-form-v32"
         onSubmit={submitHours}
       >
         <h2>Horários</h2>
@@ -793,7 +800,7 @@ export function AdminSettingsPage() {
         {hours.data?.map((hour) => (
           <div
             className="hour-row"
-            key={hour.weekday}
+            key={`${hour.weekday}-${hour.position ?? 0}`}
           >
             <label>
               <input

@@ -35,7 +35,10 @@ export async function createOrder(input: CreateOrderInput) {
       where: { singletonKey: "default" },
     }),
     prisma.businessHour.findMany({
-      orderBy: { weekday: "asc" },
+      orderBy: [
+            { weekday: "asc" },
+            { position: "asc" },
+          ],
     }),
   ]);
 

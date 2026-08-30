@@ -83,11 +83,22 @@ async function main() {
   ];
 
   for (const hour of hours) {
-    await prisma.businessHour.upsert({
-      where: { weekday: hour.weekday },
-      update: {},
-      create: hour,
-    });
+    const existing =
+      await prisma.businessHour.findFirst({
+        where: {
+          weekday: hour.weekday,
+          position: 0,
+        },
+      });
+
+    if (!existing) {
+      await prisma.businessHour.create({
+        data: {
+          ...hour,
+          position: 0,
+        },
+      });
+    }
   }
 
   console.log(`Seed concluído. Admin: ${email}`);

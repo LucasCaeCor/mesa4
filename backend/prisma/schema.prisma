@@ -133,6 +133,11 @@ model Category {
   products  Product[]
 }
 
+enum CartSuggestionKind {
+  DRINK
+  EXTRA
+}
+
 model Product {
   id                String               @id @default(auto()) @map("_id") @db.ObjectId
   categoryId        String               @db.ObjectId
@@ -145,6 +150,8 @@ model Product {
   imagePublicId     String?
   featured          Boolean              @default(false)
   suggestAtCheckout Boolean              @default(false)
+  cartSuggestionKind     CartSuggestionKind?
+  cartSuggestionPriority Int                  @default(0)
   active            Boolean              @default(true)
   soldOut           Boolean              @default(false)
   position          Int                  @default(0)
@@ -210,12 +217,15 @@ model DeliveryZone {
 
 model BusinessHour {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  weekday   Int      @unique
+  weekday   Int
   enabled   Boolean  @default(true)
   opensAt   String
   closesAt  String
+  position  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([weekday, position])
 }
 
 model StoreSettings {

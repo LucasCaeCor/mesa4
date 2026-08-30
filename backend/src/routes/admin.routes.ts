@@ -48,6 +48,16 @@ const productSchema = z.object({
   imagePublicId: z.string().trim().max(200).optional().or(z.literal("")),
   featured: z.boolean().default(false),
   suggestAtCheckout: z.boolean().default(false),
+  cartSuggestionKind: z
+    .enum(["DRINK", "EXTRA"])
+    .nullable()
+    .optional(),
+  cartSuggestionPriority: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(999)
+    .default(0),
   active: z.boolean().default(true),
   soldOut: z.boolean().default(false),
   position: z.coerce.number().int().min(0).default(0),
@@ -102,6 +112,7 @@ const businessHourSchema = z.object({
   enabled: z.boolean(),
   opensAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   closesAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  position: z.coerce.number().int().min(0).max(20).default(0),
 });
 
 const settingsSchema = z.object({
@@ -1440,15 +1451,81 @@ app.get("/admin/me", { preHandler: app.authenticateAdmin }, async (request) => (
     return reply.code(204).send();
   });
 
-  app.get("/admin/business-hours", { preHandler: app.authenticateAdmin }, async () => prisma.businessHour.findMany({ orderBy: { weekday: "asc" } }));
-  app.put("/admin/business-hours", { preHandler: app.authenticateAdmin }, async (request) => {
-    const input = z.array(businessHourSchema).length(7).parse(request.body);
-    for (const hour of input) {
-      await prisma.businessHour.upsert({ where: { weekday: hour.weekday }, update: hour, create: hour });
-    }
-    await audit(request, "UPDATE", "BUSINESS_HOURS", undefined, input);
-    return prisma.businessHour.findMany({ orderBy: { weekday: "asc" } });
-  });
+  /* MESA4_MULTI_BUSINESS_HOURS_V32 */
+  app.get(
+    "/admin/business-hours",
+    { preHandler: app.authenticateAdmin },
+    async () =>
+      prisma.businessHour.findMany({
+        orderBy: [
+          { weekday: "asc" },
+          { position: "asc" },
+          { opensAt: "asc" },
+        ],
+      }),
+  );
+
+  app.put(
+    "/admin/business-hours",
+    { preHandler: app.authenticateAdmin },
+    async (request) => {
+      const input = z
+        .array(businessHourSchema)
+        .min(7)
+        .max(35)
+        .parse(request.body);
+
+      const weekdays = new Set(
+        input.map((hour) => hour.weekday),
+      );
+
+      if (weekdays.size !== 7) {
+        throw new HttpError(
+          422,
+          "Informe a configuração dos 7 dias da semana",
+          "BUSINESS_HOURS_ALL_DAYS_REQUIRED",
+        );
+      }
+
+      for (const hour of input) {
+        if (
+          hour.enabled &&
+          hour.opensAt === hour.closesAt
+        ) {
+          throw new HttpError(
+            422,
+            "O horário de abertura e fechamento não pode ser igual",
+            "INVALID_BUSINESS_HOUR",
+          );
+        }
+      }
+
+      await prisma.$transaction([
+        prisma.businessHour.deleteMany({}),
+        ...input.map((hour) =>
+          prisma.businessHour.create({
+            data: hour,
+          }),
+        ),
+      ]);
+
+      await audit(
+        request,
+        "UPDATE",
+        "BUSINESS_HOURS",
+        undefined,
+        input,
+      );
+
+      return prisma.businessHour.findMany({
+        orderBy: [
+          { weekday: "asc" },
+          { position: "asc" },
+          { opensAt: "asc" },
+        ],
+      });
+    },
+  );
 
   app.get("/admin/settings", { preHandler: app.authenticateAdmin }, async () => prisma.storeSettings.findUnique({ where: { singletonKey: "default" } }));
   app.put("/admin/settings", { preHandler: app.authenticateAdmin }, async (request) => {

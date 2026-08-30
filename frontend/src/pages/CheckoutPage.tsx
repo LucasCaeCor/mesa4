@@ -116,11 +116,13 @@ export function CheckoutPage() {
     setSuggestionProduct,
   ] = useState<Product | null>(null);
 
+  /* MESA4_MANAGED_CHECKOUT_SUGGESTIONS_V32 */
   const suggestedProducts = useMemo(() => {
     const products =
       menu.data?.categories.flatMap(
         (category) => category.products,
       ) ?? [];
+
     const productsInCart = new Set(
       items.map((item) => item.productId),
     );
@@ -130,7 +132,16 @@ export function CheckoutPage() {
         (product) =>
           product.suggestAtCheckout &&
           !product.soldOut &&
-          !productsInCart.has(product.id),
+          !productsInCart.has(
+            product.id,
+          ),
+      )
+      .sort(
+        (a, b) =>
+          (b.cartSuggestionPriority ??
+            0) -
+          (a.cartSuggestionPriority ??
+            0),
       )
       .slice(0, 4);
   }, [items, menu.data]);
@@ -1071,7 +1082,7 @@ export function CheckoutPage() {
           {suggestedProducts.length > 0 && (
             <section className="checkout-suggestions">
               <div className="checkout-suggestions-heading">
-                <small>Que tal uma bebida?</small>
+                <small>Sugestões escolhidas pela loja</small>
                 <h3>Complete seu pedido</h3>
               </div>
 

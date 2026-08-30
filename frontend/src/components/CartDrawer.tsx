@@ -1,16 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
 import {
-  GlassWater,
   Minus,
   Plus,
   ShoppingBag,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-
 import { api } from "../lib/api";
 import { formatMoney } from "../lib/format";
 import { useCart } from "../store/cart";
@@ -22,19 +19,13 @@ import { ProductModal } from "./ProductModal";
 
 const DRINK_KEYWORDS = [
   "bebida",
-  "bebidas",
   "drink",
-  "drinks",
   "refri",
   "refrigerante",
-  "refrigerantes",
   "coca",
   "guarana",
-  "guaraná",
   "suco",
-  "sucos",
   "agua",
-  "água",
   "fanta",
   "sprite",
   "pepsi",
@@ -43,86 +34,46 @@ const DRINK_KEYWORDS = [
 
 const MEAL_KEYWORDS = [
   "lanche",
-  "lanches",
   "burger",
   "burguer",
   "hamburguer",
-  "hambúrguer",
   "smash",
   "sanduiche",
-  "sanduíche",
   "hot dog",
-  "hotdog",
   "cachorro quente",
   "combo",
 ];
 
 const EXTRA_KEYWORDS = [
   "adicional",
-  "adicionais",
   "extra",
-  "extras",
   "acompanhamento",
-  "acompanhamentos",
   "batata",
   "fritas",
   "onion",
   "nugget",
-  "nuggets",
   "molho",
-  "molhos",
   "cheddar",
   "bacon",
   "catupiry",
   "calabresa",
   "ovo",
   "porcao",
-  "porção",
   "sobremesa",
 ];
 
 const OPTION_GROUP_EXTRA_KEYWORDS = [
   "adicional",
-  "adicionais",
   "extra",
-  "extras",
   "acrescimo",
-  "acréscimo",
   "complemento",
-  "complementos",
 ];
 
-const STOP_WORDS = new Set([
-  "com",
-  "sem",
-  "para",
-  "por",
-  "uma",
-  "um",
-  "the",
-  "de",
-  "da",
-  "do",
-  "das",
-  "dos",
-  "ml",
-  "litro",
-  "litros",
-  "lata",
-  "garrafa",
-  "unidade",
-]);
-
-function normalizeText(
-  value: string,
-) {
+function normalizeText(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .toLowerCase();
 }
 
 function includesAny(
@@ -132,69 +83,10 @@ function includesAny(
   const normalized =
     normalizeText(value);
 
-  return keywords.some(
-    (keyword) =>
-      normalized.includes(
-        normalizeText(keyword),
-      ),
-  );
-}
-
-function trimDescription(
-  value?: string,
-) {
-  const text = value?.trim();
-
-  if (!text) {
-    return "Toque para adicionar ao pedido";
-  }
-
-  return text.length > 78
-    ? `${text.slice(0, 75)}...`
-    : text;
-}
-
-function significantWords(
-  value: string,
-) {
-  return normalizeText(value)
-    .split(" ")
-    .filter(
-      (word) =>
-        word.length >= 3 &&
-        !STOP_WORDS.has(word),
-    );
-}
-
-function productLooksRepresented(
-  product: Product,
-  cartText: string,
-) {
-  const candidate =
-    normalizeText(product.name);
-
-  if (
-    candidate &&
-    cartText.includes(candidate)
-  ) {
-    return true;
-  }
-
-  const words =
-    significantWords(product.name);
-
-  if (!words.length) {
-    return false;
-  }
-
-  const matched =
-    words.filter((word) =>
-      cartText.includes(word),
-    ).length;
-
-  return (
-    words.length >= 2 &&
-    matched / words.length >= 0.75
+  return keywords.some((keyword) =>
+    normalized.includes(
+      normalizeText(keyword),
+    ),
   );
 }
 
@@ -210,8 +102,10 @@ export function CartDrawer() {
 
   const navigate = useNavigate();
 
-  const [selectedUpsell, setSelectedUpsell] =
-    useState<Product | null>(null);
+  const [
+    suggestionProduct,
+    setSuggestionProduct,
+  ] = useState<Product | null>(null);
 
   const menu = useQuery({
     queryKey: ["menu"],
@@ -219,55 +113,55 @@ export function CartDrawer() {
       api<MenuResponse>("/menu"),
   });
 
-  const subtotal = items.reduce(
-    (total, item) =>
-      total +
-      (item.basePriceCents +
-        item.options.reduce(
-          (sum, option) =>
-            sum +
-            option.priceCents *
-              option.quantity,
-          0,
-        )) *
-        item.quantity,
-    0,
-  );
+  const subtotal =
+    items.reduce(
+      (total, item) =>
+        total +
+        (item.basePriceCents +
+          item.options.reduce(
+            (sum, option) =>
+              sum +
+              option.priceCents *
+                option.quantity,
+            0,
+          )) *
+          item.quantity,
+      0,
+    );
 
   const catalog = useMemo(
     () =>
-      (menu.data?.categories ?? []).flatMap(
+      menu.data?.categories.flatMap(
         (category) =>
           category.products.map(
             (product) => ({
-              product,
               categoryName:
                 category.name,
+              product,
             }),
           ),
-      ),
+      ) ?? [],
     [menu.data],
   );
 
-  const cartProductIds = useMemo(
-    () =>
-      new Set(
-        items.map(
-          (item) => item.productId,
-        ),
-      ),
-    [items],
-  );
+  const hasManualSuggestionConfig =
+    catalog.some(
+      ({ product }) =>
+        product.cartSuggestionKind ===
+          "DRINK" ||
+        product.cartSuggestionKind ===
+          "EXTRA",
+    );
 
   const cartContext = useMemo(() => {
     let hasMeal = false;
     let hasDrink = false;
     let hasExtra = false;
 
-    const textParts: string[] = [];
+    const cartTextParts: string[] = [];
 
     for (const item of items) {
-      const catalogItem =
+      const catalogEntry =
         catalog.find(
           ({ product }) =>
             product.id ===
@@ -275,24 +169,51 @@ export function CartDrawer() {
         );
 
       const product =
-        catalogItem?.product;
+        catalogEntry?.product;
 
-      const categoryName =
-        catalogItem?.categoryName ?? "";
+      const identity = [
+        catalogEntry?.categoryName ??
+          "",
+        product?.name ??
+          item.productName,
+      ].join(" ");
 
-      const productIdentity =
-        `${categoryName} ${product?.name ?? item.productName}`;
+      const fullProductText = [
+        identity,
+        product?.description ?? "",
+      ].join(" ");
 
-      const productFullText =
-        `${productIdentity} ${product?.description ?? ""}`;
+      const optionsText =
+        item.options
+          .map(
+            (option) =>
+              `${option.groupName} ${option.optionName}`,
+          )
+          .join(" ");
 
-      textParts.push(
-        productFullText,
+      cartTextParts.push(
+        fullProductText,
+        optionsText,
       );
 
       if (
         includesAny(
-          productIdentity,
+          identity,
+          MEAL_KEYWORDS,
+        )
+      ) {
+        hasMeal = true;
+      }
+
+      if (
+        product?.cartSuggestionKind ===
+          "DRINK" ||
+        includesAny(
+          fullProductText,
+          DRINK_KEYWORDS,
+        ) ||
+        includesAny(
+          optionsText,
           DRINK_KEYWORDS,
         )
       ) {
@@ -300,101 +221,24 @@ export function CartDrawer() {
       }
 
       if (
+        product?.cartSuggestionKind ===
+          "EXTRA" ||
         includesAny(
-          productIdentity,
-          MEAL_KEYWORDS,
-        ) &&
-        !includesAny(
-          productIdentity,
-          DRINK_KEYWORDS,
-        )
-      ) {
-        hasMeal = true;
-      }
-
-      // Produto avulso de acompanhamento/adicional.
-      if (
-        includesAny(
-          productIdentity,
+          fullProductText,
           EXTRA_KEYWORDS,
-        ) &&
-        !includesAny(
-          productIdentity,
-          MEAL_KEYWORDS,
-        ) &&
-        !includesAny(
-          productIdentity,
-          DRINK_KEYWORDS,
-        )
-      ) {
-        hasExtra = true;
-      }
-
-      // Combos podem declarar bebida/batata na descrição.
-      if (
+        ) ||
         includesAny(
-          productIdentity,
-          ["combo"],
-        )
-      ) {
-        if (
-          includesAny(
-            product?.description ?? "",
-            DRINK_KEYWORDS,
-          )
-        ) {
-          hasDrink = true;
-        }
-
-        if (
-          includesAny(
-            product?.description ?? "",
-            EXTRA_KEYWORDS,
-          )
-        ) {
-          hasExtra = true;
-        }
-      }
-
-      for (const option of item.options) {
-        const optionText =
-          `${option.groupName} ${option.optionName}`;
-
-        textParts.push(optionText);
-
-        if (
-          includesAny(
-            optionText,
-            DRINK_KEYWORDS,
-          )
-        ) {
-          hasDrink = true;
-        }
-
-        // Para não considerar ingrediente normal do lanche
-        // como adicional, a opção precisa estar em um grupo
-        // de adicionais/extras OU ter nome muito claro de
-        // acompanhamento.
-        if (
+          optionsText,
+          EXTRA_KEYWORDS,
+        ) ||
+        item.options.some((option) =>
           includesAny(
             option.groupName,
             OPTION_GROUP_EXTRA_KEYWORDS,
-          ) ||
-          includesAny(
-            option.optionName,
-            [
-              "batata",
-              "fritas",
-              "onion",
-              "nugget",
-              "nuggets",
-              "porcao",
-              "porção",
-            ],
-          )
-        ) {
-          hasExtra = true;
-        }
+          ),
+        )
+      ) {
+        hasExtra = true;
       }
     }
 
@@ -402,137 +246,143 @@ export function CartDrawer() {
       hasMeal,
       hasDrink,
       hasExtra,
-      cartText: normalizeText(
-        textParts.join(" "),
+      text: normalizeText(
+        cartTextParts.join(" "),
       ),
     };
   }, [catalog, items]);
 
-  const drinkSuggestions = useMemo(
-    () =>
-      catalog
-        .filter(
-          ({
-            product,
-            categoryName,
-          }) => {
-            if (
-              product.soldOut ||
-              cartProductIds.has(
-                product.id,
-              )
-            ) {
-              return false;
-            }
+  function productLooksRepresented(
+    product: Product,
+  ) {
+    const name =
+      normalizeText(product.name);
 
-            /* MESA4_DRINK_FILTER_V25_1 */
-            // Para classificar uma sugestão como bebida,
-            // usamos somente categoria + nome. A descrição
-            // pode dizer "combo com Coca-Cola" e isso não
-            // transforma o combo em uma bebida.
-            const identity =
-              `${categoryName} ${product.name}`;
+    return (
+      name.length >= 3 &&
+      cartContext.text.includes(name)
+    );
+  }
 
-            if (
-              !includesAny(
-                identity,
-                DRINK_KEYWORDS,
-              )
-            ) {
-              return false;
-            }
+  function suggestionEnabled(
+    product: Product,
+    kind: "DRINK" | "EXTRA",
+    legacyIdentity: string,
+  ) {
+    if (
+      product.cartSuggestionKind
+    ) {
+      return (
+        product.suggestAtCheckout &&
+        product.cartSuggestionKind ===
+          kind
+      );
+    }
 
-            // Nunca deixa lanche/combo entrar na seção
-            // "Que tal uma bebida?".
-            if (
-              includesAny(
-                identity,
-                MEAL_KEYWORDS,
-              )
-            ) {
-              return false;
-            }
+    // Compatibilidade com o sistema anterior:
+    // enquanto nenhum produto tiver classificação manual,
+    // mantém o comportamento contextual por palavras.
+    if (!hasManualSuggestionConfig) {
+      return kind === "DRINK"
+        ? includesAny(
+            legacyIdentity,
+            DRINK_KEYWORDS,
+          ) &&
+            !includesAny(
+              legacyIdentity,
+              MEAL_KEYWORDS,
+            )
+        : includesAny(
+            legacyIdentity,
+            EXTRA_KEYWORDS,
+          );
+    }
 
-            return !productLooksRepresented(
-              product,
-              cartContext.cartText,
-            );
-          },
-        )
-        .slice(0, 4)
-        .map(
-          ({ product }) => product,
-        ),
-    [
-      catalog,
-      cartProductIds,
-      cartContext.cartText,
-    ],
-  );
+    // Produtos explicitamente mantidos em "Automático (legado)"
+    // continuam participando mesmo após ativar o modo manual.
+    if (
+      product.suggestAtCheckout
+    ) {
+      return kind === "DRINK"
+        ? includesAny(
+            legacyIdentity,
+            DRINK_KEYWORDS,
+          ) &&
+            !includesAny(
+              legacyIdentity,
+              MEAL_KEYWORDS,
+            )
+        : includesAny(
+            legacyIdentity,
+            EXTRA_KEYWORDS,
+          );
+    }
 
-  const extraSuggestions = useMemo(() => {
-    const candidates =
-      catalog.filter(
+    return false;
+  }
+
+  function sortedCandidates(
+    kind: "DRINK" | "EXTRA",
+  ) {
+    return catalog
+      .filter(
         ({
-          product,
           categoryName,
+          product,
         }) => {
           if (
             product.soldOut ||
-            cartProductIds.has(
-              product.id,
+            items.some(
+              (item) =>
+                item.productId ===
+                product.id,
+            ) ||
+            productLooksRepresented(
+              product,
             )
           ) {
             return false;
           }
 
-          const text =
-            `${categoryName} ${product.name} ${product.description ?? ""}`;
+          // Para classificar sugestão, usa categoria + nome.
+          // A descrição do combo não transforma o combo em bebida.
+          const identity = [
+            categoryName,
+            product.name,
+          ].join(" ");
 
-          if (
-            includesAny(
-              text,
-              DRINK_KEYWORDS,
-            ) ||
-            includesAny(
-              text,
-              MEAL_KEYWORDS,
-            )
-          ) {
-            return false;
-          }
-
-          const looksLikeExtra =
-            includesAny(
-              text,
-              EXTRA_KEYWORDS,
-            ) ||
-            product.suggestAtCheckout;
-
-          if (!looksLikeExtra) {
-            return false;
-          }
-
-          return !productLooksRepresented(
+          return suggestionEnabled(
             product,
-            cartContext.cartText,
+            kind,
+            identity,
           );
         },
-      );
+      )
+      .sort((a, b) => {
+        const priority =
+          (b.product
+            .cartSuggestionPriority ??
+            0) -
+          (a.product
+            .cartSuggestionPriority ??
+            0);
 
-    return candidates
-      .slice(0, 4)
-      .map(
-        ({ product }) => product,
-      );
-  }, [
-    catalog,
-    cartProductIds,
-    cartContext.cartText,
-  ]);
+        if (priority !== 0) {
+          return priority;
+        }
 
-  const suggestionMode =
-    !items.length ||
+        return a.product.name.localeCompare(
+          b.product.name,
+          "pt-BR",
+        );
+      })
+      .slice(0, 4);
+  }
+
+  const suggestionMode:
+    | "DRINK"
+    | "EXTRA"
+    | "NONE" =
     !cartContext.hasMeal
       ? "NONE"
       : !cartContext.hasDrink
@@ -541,13 +391,20 @@ export function CartDrawer() {
           ? "EXTRA"
           : "NONE";
 
-  function handleSuggestion(
+  const suggestions =
+    suggestionMode === "NONE"
+      ? []
+      : sortedCandidates(
+          suggestionMode,
+        );
+
+  function addSuggestion(
     product: Product,
   ) {
     if (
-      product.optionGroups.length
+      product.optionGroups.length > 0
     ) {
-      setSelectedUpsell(product);
+      setSuggestionProduct(product);
       return;
     }
 
@@ -562,13 +419,6 @@ export function CartDrawer() {
     });
   }
 
-  const visibleSuggestions =
-    suggestionMode === "DRINK"
-      ? drinkSuggestions
-      : suggestionMode === "EXTRA"
-        ? extraSuggestions
-        : [];
-
   return (
     <>
       {open && (
@@ -581,7 +431,9 @@ export function CartDrawer() {
       )}
 
       <aside
-        className={`cart-drawer ${open ? "open" : ""}`}
+        className={`cart-drawer ${
+          open ? "open" : ""
+        }`}
       >
         <header>
           <div>
@@ -607,7 +459,7 @@ export function CartDrawer() {
                 Seu carrinho está vazio
               </h3>
               <p>
-                Escolha um burger para
+                Escolha um lanche para
                 começar.
               </p>
             </div>
@@ -624,7 +476,6 @@ export function CartDrawer() {
                     {item.quantity}x{" "}
                     {item.productName}
                   </strong>
-
                   <small>
                     {item.options
                       .map(
@@ -657,11 +508,9 @@ export function CartDrawer() {
                   >
                     <Minus />
                   </button>
-
                   <span>
                     {item.quantity}
                   </span>
-
                   <button
                     onClick={() =>
                       changeQuantity(
@@ -678,7 +527,10 @@ export function CartDrawer() {
                   {formatMoney(
                     (item.basePriceCents +
                       item.options.reduce(
-                        (sum, option) =>
+                        (
+                          sum,
+                          option,
+                        ) =>
                           sum +
                           option.priceCents *
                             option.quantity,
@@ -691,112 +543,86 @@ export function CartDrawer() {
             </article>
           ))}
 
-          {!!items.length &&
-            visibleSuggestions.length > 0 && (
-              <div className="upsell-stack">
-                <section
-                  className="upsell-section"
-                  data-contextual-upsell="true"
-                >
-                  <div className="upsell-header">
-                    <div className="upsell-icon">
-                      {suggestionMode ===
-                      "DRINK" ? (
-                        <GlassWater
-                          size={18}
-                        />
-                      ) : (
-                        <Sparkles
-                          size={18}
-                        />
-                      )}
-                    </div>
+          {items.length > 0 &&
+            suggestions.length > 0 && (
+              <section className="cart-contextual-upsell">
+                <div className="cart-upsell-heading">
+                  <small>
+                    {suggestionMode ===
+                    "DRINK"
+                      ? "🥤 Falta uma bebida?"
+                      : "✨ Quer turbinar seu pedido?"}
+                  </small>
+                  <h3>
+                    {suggestionMode ===
+                    "DRINK"
+                      ? "Que tal uma bebida?"
+                      : "Adicione um extra"}
+                  </h3>
+                </div>
 
-                    <div>
-                      <span className="upsell-kicker">
-                        {suggestionMode ===
-                        "DRINK"
-                          ? "Falta só uma bebida"
-                          : "Deixe ainda melhor"}
-                      </span>
+                <div className="cart-upsell-grid">
+                  {suggestions.map(
+                    ({ product }) => (
+                      <article
+                        className="cart-upsell-card"
+                        key={product.id}
+                      >
+                        {product.imageUrl ? (
+                          <img
+                            src={
+                              product.imageUrl
+                            }
+                            alt={
+                              product.name
+                            }
+                          />
+                        ) : (
+                          <div className="cart-upsell-placeholder">
+                            {suggestionMode ===
+                            "DRINK"
+                              ? "🥤"
+                              : "🍟"}
+                          </div>
+                        )}
 
-                      <h3>
-                        {suggestionMode ===
-                        "DRINK"
-                          ? "Que tal uma bebida?"
-                          : "Turbine seu lanche"}
-                      </h3>
+                        <div className="cart-upsell-copy">
+                          <strong>
+                            {product.name}
+                          </strong>
+                          {product.description && (
+                            <small>
+                              {
+                                product.description
+                              }
+                            </small>
+                          )}
+                          <b>
+                            {formatMoney(
+                              product.priceCents,
+                            )}
+                          </b>
+                        </div>
 
-                      <p>
-                        {suggestionMode ===
-                        "DRINK"
-                          ? "Seu pedido já tem lanche. Escolha uma bebida para completar."
-                          : "Seu pedido já tem lanche e bebida. Que tal adicionar um acompanhamento?"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="upsell-grid">
-                    {visibleSuggestions.map(
-                      (product) => (
                         <button
-                          className="upsell-card"
-                          key={product.id}
+                          type="button"
+                          className="secondary"
                           onClick={() =>
-                            handleSuggestion(
+                            addSuggestion(
                               product,
                             )
                           }
                         >
-                          <div className="upsell-thumb">
-                            {product.imageUrl ? (
-                              <img
-                                src={
-                                  product.imageUrl
-                                }
-                                alt={
-                                  product.name
-                                }
-                              />
-                            ) : (
-                              <span>
-                                {suggestionMode ===
-                                "DRINK"
-                                  ? "🥤"
-                                  : "🍟"}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="upsell-copy">
-                            <strong>
-                              {product.name}
-                            </strong>
-
-                            <small>
-                              {trimDescription(
-                                product.description,
-                              )}
-                            </small>
-
-                            <div className="upsell-meta">
-                              <b>
-                                {formatMoney(
-                                  product.priceCents,
-                                )}
-                              </b>
-
-                              <span>
-                                Adicionar
-                              </span>
-                            </div>
-                          </div>
+                          {product.optionGroups
+                            .length > 0
+                            ? "Escolher"
+                            : "+ Adicionar"}
                         </button>
-                      ),
-                    )}
-                  </div>
-                </section>
-              </div>
+                      </article>
+                    ),
+                  )}
+                </div>
+              </section>
             )}
         </div>
 
@@ -822,11 +648,11 @@ export function CartDrawer() {
         )}
       </aside>
 
-      {selectedUpsell && (
+      {suggestionProduct && (
         <ProductModal
-          product={selectedUpsell}
+          product={suggestionProduct}
           onClose={() =>
-            setSelectedUpsell(null)
+            setSuggestionProduct(null)
           }
         />
       )}
